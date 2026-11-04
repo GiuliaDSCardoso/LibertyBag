@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Escala de espaçamento única (4/8/12/16/24/32/48/64px) */
+    --space-4: 4px;
+    --space-8: 8px;
+    --space-12: 12px;
+    --space-16: 16px;
+    --space-24: 24px;
+    --space-32: 32px;
+    --space-48: 48px;
+    --space-64: 64px;
+  }
+
+  /* Escala de Tamanho da Letra: como todas as classes de texto usam rem,
+     todos os textos (inclusive os de apoio >= 14px) escalam proporcionalmente! */
+  html,
+  html[data-font-size='normal'] {
+    font-size: 16px;
+  }
+
+  html[data-font-size='large'] {
+    font-size: 18px;
+  }
+
+  html[data-font-size='xlarge'] {
+    font-size: 20px;
+  }
+
+  body {
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+      background-color 220ms ease,
+      color 220ms ease;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-serif-title {
+    font-family: 'Fraunces', Georgia, serif;
+  }
+}
+
+/* Títulos fluidos com clamp e escala de fonte (rem) */
+.title-page {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(1.85rem, 1.5rem + 1.4vw, 2.5rem);
+  line-height: 1.18;
+}
+
+.title-section {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: clamp(1.3rem, 1.15rem + 0.6vw, 1.6rem);
+  line-height: 1.25;
+}
+
+/* Texto de apoio nunca menor que 14px (0.875rem = 14px no Normal, 15.75px no Grande, 17.5px no Bem grande) */
+.text-support {
+  font-size: 0.9375rem; /* 15px base, escala com html font-size */
+  line-height: 1.45;
+}
+
+.text-support-sm {
+  font-size: 0.875rem; /* 14px mínimo absoluto, escala com html font-size */
+  line-height: 1.4;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco visível de alto contraste (WCAG AA) */
+*:focus-visible {
+  outline: 3px solid #f89c3d;
+  outline-offset: 2px;
+}
+
+/* Respeita prefers-reduced-motion globalmente para transições CSS */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hover apenas em dispositivos com mouse */
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
