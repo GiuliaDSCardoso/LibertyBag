@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   BookOpen,
   Palette,
@@ -13,6 +13,7 @@ import {
   Check,
   Plus,
   Download,
+  Upload,
   FileText,
   LogOut
 } from 'lucide-react';
@@ -35,6 +36,7 @@ import {
   downloadTransactionsCSV,
   printTransactionsReportPDF
 } from './exportService';
+import { importTransactionsFromFileWithUndo } from './importService';
 import { SpacesAndSyncCard } from '../spaces/SpacesAndSyncCard';
 
 export const SettingsPage: React.FC = () => {
@@ -44,6 +46,7 @@ export const SettingsPage: React.FC = () => {
     userName,
     userEmail,
     activeSpaceId,
+    activeUserId,
     setActiveSpaceId,
     setTheme,
     setFontSize,
@@ -52,6 +55,39 @@ export const SettingsPage: React.FC = () => {
     reopenOnboarding,
     showUndoToast
   } = useAppStore();
+
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImportingFile, setIsImportingFile] = useState(false);
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setIsImportingFile(true);
+    try {
+      const res = await importTransactionsFromFileWithUndo(file, {
+        spaceId: activeSpaceId,
+        userId: activeUserId
+      });
+
+      if (res.importedCount > 0) {
+        showUndoToast(
+          `${res.importedCount} lançamento(s) importado(s) com categoria e tipo automáticos!`,
+          res.undo
+        );
+      } else {
+        showUndoToast(
+          'Não encontramos lançamentos válidos nesse arquivo CSV ou PDF.',
+          async () => {}
+        );
+      }
+    } catch {
+      showUndoToast('Não foi possível importar o arquivo selecionado.', async () => {});
+    } finally {
+      setIsImportingFile(false);
+    }
+  };
 
   const handleLogout = async () => {
     const supabase = getSupabaseClient();
@@ -86,12 +122,12 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      <header className="flex items-start justify-between gap-4 pt-2">
-        <div>
+      <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+        <div className="min-w-0 flex-1 pr-2">
           <h1 className="title-page text-blue-royal dark:text-sun">
             Mais opções
           </h1>
-          <p className="text-base text-blue-deep/85 dark:text-cream/85 mt-2">
+          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-2">
             Deixe o aplicativo do jeito mais confortável para você.
           </p>
         </div>
@@ -293,21 +329,39 @@ export const SettingsPage: React.FC = () => {
             )}
           </Card>
 
-          {/* 5. Exportar meus dados (CSV / PDF) */}
+          {/* 5. Importar e Exportar meus dados (CSV / PDF) */}
           <Card variant="white" staggerIndex={4} className="space-y-4">
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".csv,.pdf,text/csv,application/pdf"
+              onChange={handleImportFile}
+              className="hidden"
+              aria-label="Selecionar arquivo CSV ou PDF para importar"
+            />
+
             <div className="flex items-start gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-blue-sky/70 dark:bg-blue-royal/50 text-blue-royal dark:text-sun flex items-center justify-center shrink-0">
                 <Download size={24} />
               </div>
               <div>
-                <h2 className="title-section">Guardar cópia dos dados</h2>
+                <h2 className="title-section">Importar ou Guardar dados (CSV e PDF)</h2>
                 <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
-                  Baixe uma planilha (CSV) para abrir no Excel ou salve um relatório limpo em PDF.
+                  Importe extratos/planilhas em CSV ou PDF (ele identifica sozinho o valor, se entrou ou saiu e a categoria) ou baixe uma cópia dos seus dados.
                 </p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
+              <Button
+                variant="primary"
+                disabled={isImportingFile}
+                onClick={() => importFileInputRef.current?.click()}
+              >
+                <Upload size={18} />
+                <span>{isImportingFile ? 'Importando...' : 'Importar CSV ou PDF'}</span>
+              </Button>
+
               <Button
                 variant="secondary"
                 onClick={async () => {
@@ -376,7 +430,7 @@ export const SettingsPage: React.FC = () => {
         open={confirmResetOpen}
         title="Tem certeza que deseja apagar TODOS os dados?"
         description="Atenção: se apagar os dados, apaga TUDO permanentemente do banco de dados (todos os espaços criados, gastos, entradas, parcelamentos, cofrinhos, viagens, categorias e planejamentos). Tem certeza que deseja continuar?"
-        confirmLabel="Sim, apagar tudo"
+        confirmLabel="Sim, apagar"
         cancelLabel="Não, cancelar"
         onConfirm={handleWipeAllData}
         onCancel={() => setConfirmResetOpen(false)}

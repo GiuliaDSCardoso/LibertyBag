@@ -21,10 +21,10 @@ export const HelpButton: React.FC<HelpButtonProps> = ({ title, explanation, exam
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Ajuda sobre ${title}`}
-        className="min-h-[48px] px-4 rounded-pill bg-blue-sky/80 dark:bg-[#2339A8] text-blue-deep dark:text-white font-bold inline-flex items-center justify-center gap-2.5 whitespace-nowrap shrink-0 hover:bg-blue-sky transition-colors"
+        className="min-h-[40px] sm:min-h-[46px] px-3 sm:px-4 rounded-pill bg-blue-sky/80 dark:bg-[#2339A8] text-blue-deep dark:text-white font-bold inline-flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 hover:bg-blue-sky transition-colors shadow-xs"
       >
-        <HelpCircle size={20} aria-hidden="true" className="shrink-0" />
-        <span className="text-sm font-bold">Ajuda</span>
+        <HelpCircle size={18} aria-hidden="true" className="shrink-0" />
+        <span className="text-xs sm:text-sm font-bold">Ajuda</span>
       </button>
 
       <ModalShell

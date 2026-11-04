@@ -1,12 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  Check,
+  CheckSquare,
   ChevronLeft,
   ChevronRight,
   Filter,
   Plus,
   Search,
+  Square,
+  Trash2,
+  Upload,
   X
 } from 'lucide-react';
 import { db, type TransactionRecord } from '../../db/dexie';
@@ -21,13 +26,18 @@ import { calculatePeriodTotals, formatCentsToBRL } from '../../lib/money';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { HelpButton } from '../../components/ui/HelpButton';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { AnimatedMoney } from '../../components/ui/AnimatedMoney';
+import { importTransactionsFromFileWithUndo } from '../settings/importService';
+import { bulkSoftDeleteTransactionsWithUndo } from './transactionService';
 import { TransactionDetailModal } from './TransactionDetailModal';
 
 export const TransactionsPage: React.FC = () => {
-  const { activeSpaceId, openAddModal } = useAppStore();
+  const { activeSpaceId, activeUserId, openAddModal, showUndoToast } = useAppStore();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const [mode, setMode] = useState<PeriodMode>('month');
   const [refDate, setRefDate] = useState<Date>(() => new Date());
@@ -35,6 +45,11 @@ export const TransactionsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('all');
   const [selectedTx, setSelectedTx] = useState<TransactionRecord | null>(null);
+
+  // Modo de remoção com seleção individual ou selecionar tudo
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
 
   const period = useMemo(() => getPeriodRange(mode, refDate), [mode, refDate]);
 
@@ -114,24 +129,104 @@ export const TransactionsPage: React.FC = () => {
 
   const hasActiveFilter = searchQuery.trim() !== '' || selectedCategoryId !== 'all';
 
+  const handleImportFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      const res = await importTransactionsFromFileWithUndo(file, {
+        spaceId: activeSpaceId,
+        userId: activeUserId
+      });
+
+      if (res.importedCount > 0) {
+        // Ajusta a visualização para o mês do lançamento mais recente importado
+        const latestDate = res.items
+          .map((i) => i.date)
+          .sort()
+          .pop();
+        if (latestDate) {
+          const [y, m, d] = latestDate.split('-').map(Number);
+          if (y && m && d) {
+            setRefDate(new Date(y, m - 1, d, 12, 0, 0));
+            setMode('month');
+          }
+        }
+        showUndoToast(
+          `${res.importedCount} lançamento(s) importado(s) com categoria automática!`,
+          res.undo
+        );
+      } else {
+        showUndoToast(
+          'Não encontramos lançamentos válidos nesse arquivo. Verifique o formato CSV ou PDF.',
+          async () => {}
+        );
+      }
+    } catch {
+      showUndoToast('Não foi possível ler este arquivo.', async () => {});
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-8">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.pdf,text/csv,application/pdf"
+        onChange={handleImportFileChange}
+        className="hidden"
+        aria-label="Importar arquivo CSV ou PDF"
+      />
+
       {/* Cabeçalho */}
-      <header className="flex items-start justify-between gap-4 pt-2">
-        <div>
+      <header className="flex flex-wrap items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+        <div className="min-w-0 flex-1 pr-2">
           <h1 className="title-page text-blue-royal dark:text-sun">
             Lançamentos
           </h1>
-          <p className="text-base text-blue-deep/85 dark:text-cream/85 mt-2">
+          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-2">
             Tudo que entrou e saiu, organizado por dia.
           </p>
         </div>
 
-        <HelpButton
-          title="Seus Lançamentos"
-          explanation="Aqui você vê tudo que anotou por Dia, Semana ou Mês. Use as setinhas para ver meses anteriores e toque em qualquer item da lista se quiser mudar o valor ou apagar."
-          example="Esqueceu se anotou a conta de luz? Toque em 'Filtrar' e escolha a categoria 'Contas'."
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          {filteredTransactions.length > 0 && (
+            <Button
+              variant={isSelectMode ? 'sun' : 'secondary'}
+              size="md"
+              onClick={() => {
+                setIsSelectMode((v) => {
+                  const next = !v;
+                  if (!next) setSelectedIds(new Set());
+                  return next;
+                });
+              }}
+            >
+              <Trash2 size={18} />
+              <span>{isSelectMode ? 'Cancelar remoção' : 'Remover lançamentos'}</span>
+            </Button>
+          )}
+
+          <Button
+            variant="secondary"
+            size="md"
+            disabled={isImporting}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload size={18} />
+            <span>{isImporting ? 'Importando...' : 'Importar CSV ou PDF'}</span>
+          </Button>
+
+          <HelpButton
+            title="Seus Lançamentos"
+            explanation="Aqui você vê tudo que anotou por Dia, Semana ou Mês. Toque em 'Remover lançamentos' para selecionar tudo ou escolher só o que deseja apagar de uma vez. Você também pode importar CSV ou PDF com categorias automáticas!"
+            example="Quer apagar compras de teste? Clique em 'Remover lançamentos', marque o que quiser (ou 'Selecionar tudo') e confirme."
+          />
+        </div>
       </header>
 
       {/* Layout em 2 colunas em telas >= 1024px: Controles/Resumo à esquerda, Lista à direita */}
@@ -295,6 +390,64 @@ export const TransactionsPage: React.FC = () => {
 
         {/* Coluna Direita: Lista agrupada por dia ou Estado Vazio */}
         <div className="lg:col-span-7 space-y-5">
+          {/* Barra de Ações do Modo de Seleção / Remoção em Massa */}
+          {isSelectMode && filteredTransactions.length > 0 && (
+            <Card variant="sun" className="p-3 sm:p-4 space-y-3 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedIds.size === filteredTransactions.length) {
+                      setSelectedIds(new Set());
+                    } else {
+                      setSelectedIds(new Set(filteredTransactions.map((t) => t.id)));
+                    }
+                  }}
+                  className="min-h-[42px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] text-blue-deep dark:text-cream text-xs font-bold border border-blue-sky inline-flex items-center gap-2 hover:bg-cream transition-colors shadow-xs"
+                >
+                  {selectedIds.size === filteredTransactions.length ? (
+                    <>
+                      <CheckSquare size={17} className="text-blue-royal dark:text-sun shrink-0" />
+                      <span>Desmarcar tudo</span>
+                    </>
+                  ) : (
+                    <>
+                      <Square size={17} className="shrink-0" />
+                      <span>Selecionar tudo ({filteredTransactions.length})</span>
+                    </>
+                  )}
+                </button>
+
+                <span className="text-xs sm:text-sm font-extrabold text-blue-deep">
+                  {selectedIds.size} de {filteredTransactions.length} selecionado(s)
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-orange/40">
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => {
+                    setIsSelectMode(false);
+                    setSelectedIds(new Set());
+                  }}
+                >
+                  Cancelar
+                </Button>
+
+                <Button
+                  variant="danger"
+                  size="md"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setConfirmBulkDeleteOpen(true)}
+                >
+                  <Trash2 size={17} />
+                  <span>Apagar selecionados ({selectedIds.size})</span>
+                </Button>
+              </div>
+            </Card>
+          )}
+
           {groupedByDay.length === 0 ? (
             <EmptyState
               illustration="wave"
@@ -327,6 +480,8 @@ export const TransactionsPage: React.FC = () => {
                       {group.items.map((tx) => {
                         const cat = categoriesMap.get(tx.categoryId);
                         const isEntrada = tx.type === 'entrada';
+                        const isSelected = selectedIds.has(tx.id);
+
                         return (
                           <motion.button
                             key={tx.id}
@@ -336,10 +491,40 @@ export const TransactionsPage: React.FC = () => {
                             exit={{ opacity: 0, scale: 0.96 }}
                             transition={{ duration: 0.18 }}
                             type="button"
-                            onClick={() => setSelectedTx(tx)}
-                            className="w-full min-h-[72px] p-4 rounded-card bg-white dark:bg-[#192B85] hover:bg-blue-sky/35 border border-blue-sky/60 dark:border-blue-sky/20 shadow-card flex items-center justify-between gap-3 text-left transition-all hover-lift"
+                            onClick={() => {
+                              if (isSelectMode) {
+                                setSelectedIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(tx.id)) {
+                                    next.delete(tx.id);
+                                  } else {
+                                    next.add(tx.id);
+                                  }
+                                  return next;
+                                });
+                              } else {
+                                setSelectedTx(tx);
+                              }
+                            }}
+                            className={`w-full min-h-[72px] p-4 rounded-card bg-white dark:bg-[#192B85] border flex items-center justify-between gap-3 text-left transition-all hover-lift ${
+                              isSelected
+                                ? 'border-red-soft ring-2 ring-red-soft/40 bg-red-soft/10 dark:bg-red-soft/20 shadow-soft'
+                                : 'hover:bg-blue-sky/35 border-blue-sky/60 dark:border-blue-sky/20 shadow-card'
+                            }`}
                           >
                             <div className="flex items-center gap-3.5 min-w-0">
+                              {isSelectMode && (
+                                <div
+                                  className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                    isSelected
+                                      ? 'bg-red-soft border-red-soft text-white shadow-xs'
+                                      : 'border-blue-sky bg-cream dark:bg-blue-deep'
+                                  }`}
+                                >
+                                  {isSelected && <Check size={16} strokeWidth={3} />}
+                                </div>
+                              )}
+
                               <div
                                 className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0"
                                 style={{ backgroundColor: cat?.color || '#2346C8' }}
@@ -370,8 +555,20 @@ export const TransactionsPage: React.FC = () => {
                               >
                                 {isEntrada ? '+' : '-'} {formatCentsToBRL(tx.amountCents)}
                               </span>
-                              <span className="text-xs text-blue-deep/80 dark:text-cream/80 block">
-                                Toque p/ editar
+                              <span
+                                className={`text-xs block font-semibold ${
+                                  isSelectMode
+                                    ? isSelected
+                                      ? 'text-red-soft'
+                                      : 'text-blue-royal dark:text-sun'
+                                    : 'text-blue-deep/80 dark:text-cream/80'
+                                }`}
+                              >
+                                {isSelectMode
+                                  ? isSelected
+                                    ? 'Marcado p/ remover'
+                                    : 'Toque p/ selecionar'
+                                  : 'Toque p/ editar'}
                               </span>
                             </div>
                           </motion.button>
@@ -392,6 +589,31 @@ export const TransactionsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de Confirmação de Remoção em Massa */}
+      <ConfirmDialog
+        open={confirmBulkDeleteOpen}
+        title={`Apagar ${selectedIds.size} lançamento(s)?`}
+        description={`Tem certeza que deseja apagar ${
+          selectedIds.size === 1
+            ? 'o lançamento selecionado'
+            : `os ${selectedIds.size} lançamentos selecionados`
+        }? Você pode desfazer a qualquer momento tocando em Desfazer.`}
+        confirmLabel="Sim, apagar"
+        cancelLabel="Não, voltar"
+        onConfirm={async () => {
+          const idsToDelete = Array.from(selectedIds);
+          const res = await bulkSoftDeleteTransactionsWithUndo(idsToDelete);
+          setConfirmBulkDeleteOpen(false);
+          setIsSelectMode(false);
+          setSelectedIds(new Set());
+          showUndoToast(
+            `${res.deletedCount} lançamento(s) apagado(s)!`,
+            res.undo
+          );
+        }}
+        onCancel={() => setConfirmBulkDeleteOpen(false)}
+      />
 
       <TransactionDetailModal
         key={selectedTx?.id || 'closed'}

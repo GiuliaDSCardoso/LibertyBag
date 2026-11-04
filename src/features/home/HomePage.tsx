@@ -122,16 +122,16 @@ export const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Cabeçalho com Saudação e Botão de Ajuda "?" (mb >= 24px até o primeiro bloco, >= 8px entre título e subtítulo) */}
-      <header className="flex items-start justify-between gap-4 pt-2">
-        <div>
-          <span className="inline-block px-3.5 py-1 rounded-pill bg-sun/90 text-blue-deep text-xs font-bold mb-2">
+      {/* Cabeçalho com Saudação e Botão de Ajuda "?" */}
+      <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+        <div className="min-w-0 flex-1 pr-2">
+          <span className="inline-block px-3 py-0.5 rounded-pill bg-sun/90 text-blue-deep text-xs font-bold mb-1.5 sm:mb-2">
             {monthRange.label}
           </span>
           <h1 className="title-page text-blue-royal dark:text-sun">
             Olá{userName ? `, ${userName}` : ''}!
           </h1>
-          <p className="text-base text-blue-deep/85 dark:text-cream/85 mt-2">
+          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-2">
             Aqui está o resumo calmo do seu mês.
           </p>
         </div>

@@ -52,6 +52,7 @@ export const AddTransactionModal: React.FC = () => {
   // Lógica completa de Parcelamento + Entrada + Juros + Repetição em outros meses
   const [isInstallment, setIsInstallment] = useState(false);
   const [installmentsCount, setInstallmentsCount] = useState<number>(2);
+  const [installmentsInput, setInstallmentsInput] = useState<string>('2');
   const [hasDownPayment, setHasDownPayment] = useState(false);
   const [downPaymentInput, setDownPaymentInput] = useState('');
   const [hasInterest, setHasInterest] = useState(false);
@@ -63,6 +64,7 @@ export const AddTransactionModal: React.FC = () => {
   const [repeatMonthly, setRepeatMonthly] = useState(false);
   const [repeatFixedMonths, setRepeatFixedMonths] = useState<boolean>(false);
   const [repeatMonthsCount, setRepeatMonthsCount] = useState<number>(6);
+  const [repeatMonthsInput, setRepeatMonthsInput] = useState<string>('6');
 
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -113,6 +115,7 @@ export const AddTransactionModal: React.FC = () => {
     setPaymentMethod('pix');
     setIsInstallment(false);
     setInstallmentsCount(2);
+    setInstallmentsInput('2');
     setHasDownPayment(false);
     setDownPaymentInput('');
     setHasInterest(false);
@@ -122,6 +125,7 @@ export const AddTransactionModal: React.FC = () => {
     setRepeatMonthly(false);
     setRepeatFixedMonths(false);
     setRepeatMonthsCount(6);
+    setRepeatMonthsInput('6');
     setShowMoreDetails(false);
     setErrorMessage(null);
     setNewlyCreatedCategory(null);
@@ -256,7 +260,7 @@ export const AddTransactionModal: React.FC = () => {
         onClose={handleClose}
         onPrimarySubmit={handleSaveTransaction}
         title="Novo lançamento"
-        subtitle="1. Digite o valor → 2. Entrou ou Saiu → 3. Escolha a categoria e clique em Adicionar"
+        subtitle="1. Digite o valor • 2. Entrou ou Saiu • 3. Escolha a categoria e clique em Adicionar"
         maxWidthClass="max-w-4xl"
         zIndexClass="z-40"
         headerRight={
@@ -491,9 +495,12 @@ export const AddTransactionModal: React.FC = () => {
                         <button
                           key={n}
                           type="button"
-                          onClick={() => setInstallmentsCount(n)}
+                          onClick={() => {
+                            setInstallmentsCount(n);
+                            setInstallmentsInput(String(n));
+                          }}
                           className={`min-h-[42px] px-3 rounded-xl text-xs font-bold border ${
-                            installmentsCount === n
+                            installmentsCount === n && installmentsInput === String(n)
                               ? 'bg-blue-royal text-white border-blue-royal'
                               : 'bg-cream dark:bg-blue-deep border-blue-sky'
                           }`}
@@ -505,13 +512,18 @@ export const AddTransactionModal: React.FC = () => {
                         <span className="text-xs font-bold">Outro:</span>
                         <input
                           id="tx-installments-input"
-                          type="number"
-                          min={1}
-                          max={60}
-                          value={installmentsCount}
-                          onChange={(e) =>
-                            setInstallmentsCount(Math.max(1, Math.min(60, Number(e.target.value) || 1)))
-                          }
+                          type="text"
+                          inputMode="numeric"
+                          value={installmentsInput}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, '').slice(0, 3);
+                            setInstallmentsInput(raw);
+                            const parsed = parseInt(raw, 10);
+                            if (!Number.isNaN(parsed) && parsed > 0) {
+                              setInstallmentsCount(parsed);
+                            }
+                          }}
+                          placeholder="Ex.: 10"
                           className="w-20 min-h-[42px] px-2.5 rounded-xl bg-cream dark:bg-blue-deep border border-blue-sky font-bold text-center text-sm"
                         />
                         <span className="text-xs font-bold">meses</span>
@@ -730,13 +742,18 @@ export const AddTransactionModal: React.FC = () => {
                       </label>
                       <input
                         id="tx-repeat-months"
-                        type="number"
-                        min={2}
-                        max={60}
-                        value={repeatMonthsCount}
-                        onChange={(e) =>
-                          setRepeatMonthsCount(Math.max(2, Math.min(60, Number(e.target.value) || 2)))
-                        }
+                        type="text"
+                        inputMode="numeric"
+                        value={repeatMonthsInput}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '').slice(0, 3);
+                          setRepeatMonthsInput(raw);
+                          const parsed = parseInt(raw, 10);
+                          if (!Number.isNaN(parsed) && parsed > 0) {
+                            setRepeatMonthsCount(parsed);
+                          }
+                        }}
+                        placeholder="Ex.: 10"
                         className="w-24 min-h-[42px] px-3 rounded-xl bg-cream dark:bg-blue-deep border border-blue-sky font-bold text-center text-sm"
                       />
                       <span className="text-xs font-bold">meses</span>

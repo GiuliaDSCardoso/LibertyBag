@@ -133,7 +133,7 @@ export const PlanningPage: React.FC = () => {
       db.recurrences
         .where('spaceId')
         .equals(activeSpaceId)
-        .and((r) => !r.deletedAt && r.active)
+        .and((r) => !r.deletedAt && r.active && r.type === 'saida')
         .toArray(),
     [activeSpaceId],
     []
@@ -435,12 +435,12 @@ export const PlanningPage: React.FC = () => {
   return (
     <div className="space-y-6 pb-8">
       {/* Cabeçalho */}
-      <header className="flex items-start justify-between gap-4 pt-2">
-        <div>
+      <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+        <div className="min-w-0 flex-1 pr-2">
           <h1 className="title-page text-blue-royal dark:text-sun">
             Planejar
           </h1>
-          <p className="text-base text-blue-deep/85 dark:text-cream/85 mt-2">
+          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-2">
             Seus cofrinhos, quanto pode gastar, viagens e contas de todo mês.
           </p>
         </div>

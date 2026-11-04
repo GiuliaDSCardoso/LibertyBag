@@ -106,12 +106,12 @@ export const AnalyticsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-8">
-      <header className="flex items-start justify-between gap-4 pt-2">
-        <div>
+      <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+        <div className="min-w-0 flex-1 pr-2">
           <h1 className="title-page text-blue-royal dark:text-sun">
             Análises
           </h1>
-          <p className="text-base text-blue-deep/85 dark:text-cream/85 mt-2">
+          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-2">
             Entenda para onde foi o seu dinheiro sem complicação.
           </p>
         </div>

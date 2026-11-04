@@ -7,6 +7,7 @@ import {
 } from '../../db/dexie';
 import { DEFAULT_SPACE_ID, DEFAULT_USER_ID } from '../../db/seed';
 import { formatCentsToBRL } from '../../lib/money';
+import { syncAllWithSupabase } from '../sync/syncService';
 
 export type InterestInputMode = 'total_with_interest' | 'installment_value';
 
@@ -46,7 +47,7 @@ export function calculateInstallmentPlan(
   const baseAmountCents = Math.max(0, Math.round(input.baseAmountCents || 0));
   const installmentsCount = Math.max(
     1,
-    Math.min(60, Math.floor(input.installmentsCount || 1))
+    Math.min(360, Math.floor(input.installmentsCount || 1))
   );
 
   const downPaymentCents =
@@ -184,7 +185,7 @@ export async function createTransactionWithUndo(
 
   const installmentsTotal =
     input.installmentsCount && input.installmentsCount > 1
-      ? Math.min(60, Math.floor(input.installmentsCount))
+      ? Math.min(360, Math.floor(input.installmentsCount))
       : 1;
 
   const isMultiInstallment =
@@ -194,7 +195,8 @@ export async function createTransactionWithUndo(
   let recurrenceId: string | null = null;
 
   await db.transaction('rw', [db.transactions, db.recurrences], async () => {
-    if (input.repeatMonthly) {
+    // Só cadastra em "Contas a pagar" (db.recurrences) quando for uma saída (gasto/conta), nunca para entradas positivas!
+    if (input.repeatMonthly && input.type === 'saida') {
       recurrenceId = generateId();
       const nextMonthDate = format(addMonths(parseISO(input.date), 1), 'yyyy-MM-dd');
       await db.recurrences.put({
@@ -207,7 +209,7 @@ export async function createTransactionWithUndo(
         templateTitle: cleanDescription || 'Conta mensal',
         amountCents: Math.round(input.amountCents),
         categoryId: input.categoryId,
-        type: input.type,
+        type: 'saida',
         createdAt: now,
         updatedAt: now,
         deletedAt: null
@@ -216,7 +218,7 @@ export async function createTransactionWithUndo(
 
     // Se ativou "repete em outros meses" com uma quantidade específica de meses (ex.: repetir por 6 meses)
     if (input.repeatMonthly && input.repeatMonthsCount && input.repeatMonthsCount > 1) {
-      const count = Math.min(60, Math.floor(input.repeatMonthsCount));
+      const count = Math.min(360, Math.floor(input.repeatMonthsCount));
       const baseDate = parseISO(input.date);
       const records: TransactionRecord[] = [];
       for (let i = 0; i < count; i++) {
@@ -430,6 +432,53 @@ export async function softDeleteTransactionWithUndo(
         deletedAt: null,
         updatedAt: new Date().toISOString()
       });
+    }
+  };
+}
+
+/**
+ * Apaga logicamente (deletedAt) múltiplos lançamentos selecionados de uma só vez
+ * e devolve função `undo()` para restaurar todos com 1 toque.
+ */
+export async function bulkSoftDeleteTransactionsWithUndo(
+  ids: string[]
+): Promise<{ deletedCount: number; undo: () => Promise<void> }> {
+  if (!ids || ids.length === 0) {
+    return { deletedCount: 0, undo: async () => {} };
+  }
+
+  const now = new Date().toISOString();
+  const rawList = await db.transactions.bulkGet(ids);
+  const validRecords: TransactionRecord[] = [];
+  for (const t of rawList) {
+    if (t && !t.deletedAt) {
+      validRecords.push(t);
+    }
+  }
+
+  if (validRecords.length === 0) {
+    return { deletedCount: 0, undo: async () => {} };
+  }
+
+  const softDeleted = validRecords.map((t) => ({
+    ...t,
+    deletedAt: now,
+    updatedAt: now
+  }));
+  await db.transactions.bulkPut(softDeleted);
+  void syncAllWithSupabase();
+
+  return {
+    deletedCount: validRecords.length,
+    undo: async () => {
+      const undoTime = new Date().toISOString();
+      const restored = validRecords.map((t) => ({
+        ...t,
+        deletedAt: null,
+        updatedAt: undoTime
+      }));
+      await db.transactions.bulkPut(restored);
+      void syncAllWithSupabase();
     }
   };
 }

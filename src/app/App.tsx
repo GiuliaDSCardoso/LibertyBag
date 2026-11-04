@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ensureInitialDataSeeded } from '../db/seed';
+import { getVerifiedDeviceUser } from '../features/auth/authService';
 import { syncAllWithSupabase } from '../features/sync/syncService';
 import { useAppStore } from './store/useAppStore';
 import { NavigationBars } from '../components/ui/NavigationBars';
 import { UndoToast } from '../components/ui/UndoToast';
+import { ScrollToTopButton } from '../components/ui/ScrollToTopButton';
 import { OnboardingModal } from '../features/onboarding/OnboardingModal';
 import { AddTransactionModal } from '../features/transactions/AddTransactionModal';
 import { HomePage } from '../features/home/HomePage';
@@ -42,19 +44,54 @@ const AnimatedRoutes: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  const { theme, fontSize, isAuthenticated } = useAppStore();
+  const { theme, fontSize, isAuthenticated, loginUser } = useAppStore();
   const [isReady, setIsReady] = useState(false);
 
-  // Semeia categorias padrão, usuário local e espaço pessoal no IndexedDB
+  // Semeia categorias padrão e restaura a sessão ativa no aparelho ao dar reload (F5)
   useEffect(() => {
     ensureInitialDataSeeded()
+      .then(async () => {
+        const explicitlyLoggedOut =
+          typeof window !== 'undefined' &&
+          sessionStorage.getItem('libertybag_logged_out_v1') === '1';
+
+        if (!explicitlyLoggedOut) {
+          const deviceUser = await getVerifiedDeviceUser();
+          if (deviceUser.hasVerifiedUser && deviceUser.email) {
+            loginUser({
+              name: deviceUser.name,
+              email: deviceUser.email,
+              isFirstLogin: false
+            });
+            return;
+          }
+
+          if (typeof window !== 'undefined') {
+            const rawSession = sessionStorage.getItem('libertybag_active_session_v1');
+            if (rawSession) {
+              try {
+                const parsed = JSON.parse(rawSession) as { name?: string; email?: string };
+                if (parsed.email) {
+                  loginUser({
+                    name: parsed.name || parsed.email.split('@')[0],
+                    email: parsed.email,
+                    isFirstLogin: false
+                  });
+                }
+              } catch {
+                // ignora
+              }
+            }
+          }
+        }
+      })
       .catch(() => {
         // Silencioso: nunca mostrar erro técnico
       })
       .finally(() => {
         setIsReady(true);
       });
-  }, []);
+  }, [loginUser]);
 
   // Só sincroniza com o Supabase DEPOIS que o usuário estiver autenticado
   useEffect(() => {
@@ -141,6 +178,9 @@ export const App: React.FC = () => {
 
         {/* Onboarding de 3 telas */}
         <OnboardingModal />
+
+        {/* Botão flutuante de Voltar ao Topo */}
+        <ScrollToTopButton />
 
         {/* Aviso flutuante "Feito! Desfazer" */}
         <UndoToast />

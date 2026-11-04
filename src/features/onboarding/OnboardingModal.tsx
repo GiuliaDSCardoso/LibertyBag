@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import {
   MatisseFlower,
@@ -7,6 +7,7 @@ import {
 } from '../../components/illustrations/BeachIllustrations';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { lockBodyScroll } from '../../lib/scrollLock';
 import { useAppStore } from '../../app/store/useAppStore';
 import { db } from '../../db/dexie';
 import { DEFAULT_USER_ID } from '../../db/seed';
@@ -15,6 +16,12 @@ export const OnboardingModal: React.FC = () => {
   const { hasSeenOnboarding, userName, completeOnboarding } = useAppStore();
   const [step, setStep] = useState(0);
   const [nameInput, setNameInput] = useState(userName || '');
+
+  useEffect(() => {
+    if (hasSeenOnboarding) return;
+    const unlock = lockBodyScroll();
+    return () => unlock();
+  }, [hasSeenOnboarding]);
 
   if (hasSeenOnboarding) return null;
 

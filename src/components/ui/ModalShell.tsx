@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { X } from 'lucide-react';
+import { lockBodyScroll } from '../../lib/scrollLock';
 
 interface ModalShellProps {
   open: boolean;
@@ -37,6 +38,13 @@ export const ModalShell: React.FC<ModalShellProps> = ({
 }) => {
   const shouldReduceMotion = useReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Trava a rolagem do fundo (body scroll lock) enquanto o modal estiver aberto
+  useEffect(() => {
+    if (!open) return;
+    const unlock = lockBodyScroll();
+    return () => unlock();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -96,18 +104,18 @@ export const ModalShell: React.FC<ModalShellProps> = ({
       {open && (
         <div
           ref={dialogRef}
-          className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-5 overflow-hidden`}
+          className={`fixed inset-0 ${zIndexClass} flex items-center justify-center p-3 sm:p-5 overflow-hidden overscroll-contain`}
           role="dialog"
           aria-modal="true"
           aria-label={title}
         >
-          {/* Fundo escuro com blur suave */}
+          {/* Fundo escuro com blur suave que bloqueia toques de rolagem no fundo */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
-            className="fixed inset-0 bg-blue-deep/70 backdrop-blur-xs"
+            className="fixed inset-0 bg-blue-deep/70 backdrop-blur-xs overscroll-contain touch-none"
             onClick={onClose}
           />
 
@@ -117,36 +125,39 @@ export const ModalShell: React.FC<ModalShellProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-            className={`relative z-10 w-full ${maxWidthClass} max-h-[90vh] flex flex-col bg-cream dark:bg-blue-deep text-blue-deep dark:text-cream rounded-card-lg border-2 border-blue-royal shadow-soft overflow-hidden`}
+            className={`relative z-10 w-full ${maxWidthClass} max-h-[90vh] flex flex-col bg-cream dark:bg-blue-deep text-blue-deep dark:text-cream rounded-card-lg border-2 border-blue-royal shadow-soft overflow-hidden overscroll-contain`}
           >
-            {/* Cabeçalho Fixo */}
-            <div className="shrink-0 px-5 py-4 sm:px-6 sm:py-5 bg-white/80 dark:bg-[#162573]/90 border-b border-blue-sky/60 dark:border-blue-sky/20 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="font-serif italic text-2xl sm:text-3xl font-bold text-blue-royal dark:text-sun leading-tight">
-                  {title}
-                </h2>
-                {subtitle && (
-                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1.5">
-                    {subtitle}
-                  </p>
-                )}
+            {/* Cabeçalho Fixo Enquadrado e Responsivo no Mobile */}
+            <div className="shrink-0 px-4 py-3 sm:px-6 sm:py-4 bg-white/85 dark:bg-[#162573]/90 border-b border-blue-sky/60 dark:border-blue-sky/20">
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="min-w-0 flex-1 pr-1">
+                  <h2 className="font-serif italic text-xl sm:text-2xl lg:text-3xl font-bold text-blue-royal dark:text-sun leading-tight tracking-tight">
+                    {title}
+                  </h2>
+                </div>
+
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  {headerRight}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Fechar janela"
+                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-cream dark:bg-blue-deep border border-blue-sky/80 flex items-center justify-center hover:bg-blue-sky/40 transition-colors shrink-0"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                {headerRight}
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Fechar janela"
-                  className="min-w-[48px] min-h-[48px] rounded-full bg-cream dark:bg-blue-deep border border-blue-sky/80 flex items-center justify-center hover:bg-blue-sky/40 transition-colors"
-                >
-                  <X size={22} />
-                </button>
-              </div>
+              {subtitle && (
+                <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-1.5 leading-snug break-words">
+                  {subtitle}
+                </p>
+              )}
             </div>
 
-            {/* Corpo rolável verticalmente e sem corte horizontal */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5 sm:px-6 sm:py-6">
+            {/* Corpo rolável verticalmente e sem corte horizontal, isolado do fundo */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-5 sm:px-6 sm:py-6">
               {children}
             </div>
 

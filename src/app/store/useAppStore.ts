@@ -74,20 +74,44 @@ export const useAppStore = create<AppState>()((set) => ({
     })),
   reopenOnboarding: () => set({ hasSeenOnboarding: false }),
   setUserName: (userName) => set({ userName: userName.trim() }),
-  loginUser: ({ name, email, isFirstLogin }) =>
+  loginUser: ({ name, email, isFirstLogin }) => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem('libertybag_logged_out_v1');
+        sessionStorage.setItem(
+          'libertybag_active_session_v1',
+          JSON.stringify({
+            name: name ? name.trim() : '',
+            email: email ? email.trim().toLowerCase() : ''
+          })
+        );
+      } catch {
+        // ignora
+      }
+    }
     set((state) => ({
       isAuthenticated: true,
       hasSeenOnboarding: isFirstLogin ? false : true,
       userName: name ? name.trim() : state.userName,
       userEmail: email ? email.trim().toLowerCase() : state.userEmail
-    })),
-  logoutUser: () =>
+    }));
+  },
+  logoutUser: () => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('libertybag_logged_out_v1', '1');
+        sessionStorage.removeItem('libertybag_active_session_v1');
+      } catch {
+        // ignora
+      }
+    }
     set({
       isAuthenticated: false,
       userName: '',
       userEmail: '',
       isAddModalOpen: false
-    }),
+    });
+  },
   setActiveSpaceId: (activeSpaceId) => set({ activeSpaceId }),
   openAddModal: () => set({ isAddModalOpen: true }),
   closeAddModal: () => set({ isAddModalOpen: false }),
