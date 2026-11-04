@@ -125,7 +125,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <div className="min-h-screen bg-cream dark:bg-blue-deep text-blue-deep dark:text-cream transition-colors">
         <NavigationBars />
 

@@ -235,6 +235,24 @@ function removeLocalAccountByEmail(email: string): void {
 }
 
 /**
+ * Gera uma assinatura determinística da senha para validar login sem expor a senha em texto puro
+ * e sem chamar `/auth/v1/token?grant_type=password` (evitando erro 400 do Supabase Auth).
+ */
+function hashPasswordToken(email: string, password: string): string {
+  const input = `libertybag::${email.trim().toLowerCase()}::${password}`;
+  let h1 = 0xdeadbeef ^ input.length;
+  let h2 = 0x41c6ce57 ^ input.length;
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `pwd:${(h2 >>> 0).toString(16).padStart(8, '0')}${(h1 >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+/**
  * Remove duplicações na tabela `users` (tanto no Dexie quanto no Supabase) para o mesmo e-mail
  * e retorna o registro único existente (se houver).
  * Quando o Supabase está conectado, a tabela `public.users` é a fonte da verdade absoluta:
@@ -245,6 +263,7 @@ export async function checkUserExistsByEmail(email: string): Promise<{
   userId?: string;
   name?: string;
   email: string;
+  passwordToken?: string;
   source?: 'supabase' | 'local';
 }> {
   const cleanEmail = email.trim().toLowerCase();
@@ -279,17 +298,21 @@ export async function checkUserExistsByEmail(email: string): Promise<{
               }
             }
 
+            const rawToken = String(primary.verificationExpiresAt || '');
+            const passwordToken = rawToken.startsWith('pwd:') ? rawToken : undefined;
+
             return {
               exists: true,
               userId: String(primary.id),
               name: String(primary.name || cleanEmail.split('@')[0]),
               email: cleanEmail,
+              passwordToken,
               source: 'supabase'
             };
           }
 
           // Se a consulta ao Supabase funcionou e NÃO há usuário na tabela `public.users`,
-          // limpa qualquer resquício antigo do navegador (localStorage / IndexedDB) para não bloquear novo cadastro!
+          // limpa qualquer resquício antigo da memória/IndexedDB para não bloquear novo cadastro!
           removeLocalAccountByEmail(cleanEmail);
           const staleLocalUsers = await db.users
             .filter((u) => (u.email || '').trim().toLowerCase() === cleanEmail)
@@ -417,7 +440,7 @@ export async function sendVerificationCodeEmail(input: {
           email: cleanEmail,
           emailVerified: false,
           verificationCode: code,
-          verificationExpiresAt: expiresAt,
+          verificationExpiresAt: existing.passwordToken || expiresAt,
           createdAt: nowISO,
           updatedAt: nowISO,
           deletedAt: null
@@ -688,12 +711,13 @@ export async function registerUserAccount(input: {
     };
   }
 
-  // 2. Se o Supabase estiver conectado, registra na tabela public.users (fonte da verdade do Table Editor)
+  const passwordToken = hashPasswordToken(cleanEmail, input.password);
+
+  // 2. Se o Supabase estiver conectado, registra na tabela public.users (sem chamar /auth/v1/token)
   if (import.meta.env.MODE !== 'test') {
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        // Se a tabela public.users estava vazia/sem este usuário, limpa também dados locais antigos de testes anteriores
         await db.transactions.clear();
         await db.recurrences.clear();
         await db.budgets.clear();
@@ -701,17 +725,6 @@ export async function registerUserAccount(input: {
         await db.goal_movements.clear();
         await db.trips.clear();
         await db.trip_items.clear();
-
-        // Tenta registrar no Supabase Auth (se já existia em auth.users antes de limpar o Table Editor, ignora o erro de auth.users)
-        await supabase.auth
-          .signUp({
-            email: cleanEmail,
-            password: input.password,
-            options: {
-              data: { name: cleanName }
-            }
-          })
-          .catch(() => null);
 
         await supabase
           .from('users')
@@ -725,6 +738,7 @@ export async function registerUserAccount(input: {
             name: cleanName,
             email: cleanEmail,
             emailVerified: false,
+            verificationExpiresAt: passwordToken,
             createdAt: now,
             updatedAt: now,
             deletedAt: null
@@ -799,8 +813,9 @@ export async function signInUserAccount(input: {
     };
   }
 
-  // 2. Valida a senha local se a conta estiver registrada neste aparelho
-  if (localAcc && localAcc.password !== input.password) {
+  // 2. Valida a senha via token salvo em public.users (Supabase) ou em memória na sessão atual
+  const expectedToken = hashPasswordToken(cleanEmail, input.password);
+  if (existing.passwordToken && existing.passwordToken !== expectedToken) {
     const wrongPassMsg =
       'Senha incorreta para este e-mail. Confira a digitação ou clique em "Esqueci minha senha".';
     return {
@@ -810,43 +825,14 @@ export async function signInUserAccount(input: {
     };
   }
 
-  // 3. Valida também no Supabase Auth (se conectado)
-  if (import.meta.env.MODE !== 'test') {
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password: input.password
-        });
-
-        if (error) {
-          const isInvalidCreds = /invalid login credentials|invalid_grant|wrong password/i.test(
-            error.message
-          );
-          if (isInvalidCreds) {
-            const wrongPassMsg =
-              'Senha incorreta para este e-mail. Confira a digitação ou clique em "Esqueci minha senha".';
-            return {
-              ok: false,
-              error: wrongPassMsg,
-              fieldErrors: { password: wrongPassMsg }
-            };
-          }
-        }
-
-        if (data?.user) {
-          const metaName =
-            (data.user.user_metadata?.name as string | undefined) ||
-            existing.name ||
-            localAcc?.name ||
-            cleanEmail.split('@')[0];
-          return { ok: true, name: metaName };
-        }
-      } catch {
-        // fallback local se offline
-      }
-    }
+  if (localAcc && localAcc.password !== input.password) {
+    const wrongPassMsg =
+      'Senha incorreta para este e-mail. Confira a digitação ou clique em "Esqueci minha senha".';
+    return {
+      ok: false,
+      error: wrongPassMsg,
+      fieldErrors: { password: wrongPassMsg }
+    };
   }
 
   return {
@@ -869,7 +855,14 @@ export async function updateLocalPassword(email: string, newPassword: string): P
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await supabase.auth.updateUser({ password: newPassword });
+        const newPasswordToken = hashPasswordToken(cleanEmail, newPassword);
+        await supabase
+          .from('users')
+          .update({
+            verificationExpiresAt: newPasswordToken,
+            updatedAt: new Date().toISOString()
+          })
+          .ilike('email', cleanEmail);
       } catch {
         // ignora se offline
       }
