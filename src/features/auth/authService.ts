@@ -1,4 +1,3 @@
-import emailjs from '@emailjs/browser';
 import { db } from '../../db/dexie';
 import { DEFAULT_USER_ID } from '../../db/seed';
 import { getSupabaseClient } from '../../lib/supabase';
@@ -13,6 +12,10 @@ export const EMAILJS_DEFAULT_TEMPLATE_ID =
 export const EMAILJS_DEFAULT_PUBLIC_KEY =
   (import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string | undefined)?.trim() ||
   'byZwGfQatQ0wfeM9-';
+
+export const FREE_EMAIL_DEFAULT_WEBHOOK_URL =
+  (import.meta.env.VITE_FREE_EMAIL_WEBHOOK_URL as string | undefined)?.trim() ||
+  'https://script.google.com/macros/s/AKfycby00EDYR9mc6vYIGXX9ns48k30NSYEhxbocYgaxu64PnO-JoURt8E7Kb83LkKiqR_q09w/exec';
 
 const PENDING_VERIFICATION_KEY = 'libertybag_pending_verification_v1';
 const REMEMBERED_LOGIN_KEY = 'libertybag_remembered_login_v1';
@@ -215,6 +218,7 @@ interface StoredLocalAccount {
   name: string;
   password: string;
   createdAt: string;
+  verifiedOnDevice?: boolean;
 }
 
 function getLocalAccounts(): StoredLocalAccount[] {
@@ -232,6 +236,67 @@ function saveLocalAccount(account: StoredLocalAccount): void {
 function removeLocalAccountByEmail(email: string): void {
   const cleanEmail = email.trim().toLowerCase();
   memoryAccounts.delete(cleanEmail);
+}
+
+/**
+ * Verifica se o e-mail já foi confirmado pelo menos uma vez neste dispositivo (IndexedDB `db.users`).
+ */
+export async function isEmailVerifiedOnThisDevice(email: string): Promise<boolean> {
+  const cleanEmail = email.trim().toLowerCase();
+  if (!cleanEmail || cleanEmail === 'local@libertybag.app') return false;
+
+  const localAcc = memoryAccounts.get(cleanEmail);
+  if (localAcc && localAcc.verifiedOnDevice === false) {
+    return false;
+  }
+
+  const verifiedLocalUsers = await db.users
+    .filter(
+      (u) =>
+        !u.deletedAt &&
+        Boolean(u.email) &&
+        u.email.trim().toLowerCase() === cleanEmail &&
+        u.email.trim().toLowerCase() !== 'local@libertybag.app'
+    )
+    .toArray();
+
+  return verifiedLocalUsers.length > 0;
+}
+
+/**
+ * Retorna o usuário que já fez login e confirmou o dispositivo anteriormente (se houver),
+ * permitindo pular a tela de apresentação inicial quando não é o primeiro acesso.
+ */
+export async function getVerifiedDeviceUser(): Promise<{
+  hasVerifiedUser: boolean;
+  email?: string;
+  name?: string;
+}> {
+  const verifiedUsers = await db.users
+    .filter(
+      (u) =>
+        !u.deletedAt &&
+        Boolean(u.email) &&
+        u.email.trim().toLowerCase() !== 'local@libertybag.app'
+    )
+    .toArray();
+
+  if (verifiedUsers.length === 0) {
+    return { hasVerifiedUser: false };
+  }
+
+  const primary = verifiedUsers[0];
+  const cleanEmail = primary.email.trim().toLowerCase();
+  const localAcc = memoryAccounts.get(cleanEmail);
+  if (localAcc && localAcc.verifiedOnDevice === false) {
+    return { hasVerifiedUser: false };
+  }
+
+  return {
+    hasVerifiedUser: true,
+    email: cleanEmail,
+    name: primary.name || cleanEmail.split('@')[0]
+  };
 }
 
 /**
@@ -263,6 +328,7 @@ export async function checkUserExistsByEmail(email: string): Promise<{
   userId?: string;
   name?: string;
   email: string;
+  emailVerified?: boolean;
   passwordToken?: string;
   source?: 'supabase' | 'local';
 }> {
@@ -306,6 +372,7 @@ export async function checkUserExistsByEmail(email: string): Promise<{
               userId: String(primary.id),
               name: String(primary.name || cleanEmail.split('@')[0]),
               email: cleanEmail,
+              emailVerified: Boolean(primary.emailVerified),
               passwordToken,
               source: 'supabase'
             };
@@ -369,8 +436,88 @@ export async function checkUserExistsByEmail(email: string): Promise<{
 }
 
 /**
+ * Monta o HTML completo estilizado do e-mail de confirmação do LibertyBag
+ * (com o código de 6 dígitos e o botão de confirmação com 1 toque).
+ * Pode ser aberto gratuitamente em uma nova aba HTML ou enviado via Google Apps Script.
+ */
+export function buildStyledVerificationEmailHTML(params: {
+  toName: string;
+  toEmail: string;
+  code: string;
+  confirmLink: string;
+}): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seu código de acesso ao LibertyBag: ${params.code}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#FBF6EA; font-family:'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#12206B;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FBF6EA; padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px; background-color:#FFFFFF; border:3px solid #2346C8; border-radius:28px; overflow:hidden; box-shadow:0 12px 32px rgba(18,32,107,0.10);">
+          <tr>
+            <td style="background-color:#2346C8; padding:28px 32px; text-align:center;">
+              <div style="display:inline-block; background-color:#F8D56B; color:#12206B; font-weight:800; font-size:13px; padding:6px 16px; border-radius:999px; margin-bottom:12px;">
+                ✿ LIBERTYBAG • FINANÇAS EM FAMÍLIA
+              </div>
+              <h1 style="margin:0; font-family:Georgia, 'Times New Roman', serif; font-style:italic; font-size:30px; color:#FFFFFF; letter-spacing:-0.5px;">
+                Confirme seu acesso
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 28px; text-align:center;">
+              <p style="margin:0 0 12px; font-size:18px; font-weight:700; color:#12206B;">
+                Olá, ${params.toName}! ☀️
+              </p>
+              <p style="margin:0 0 8px; font-size:13px; font-weight:700; color:#52608F;">
+                Para: ${params.toEmail}
+              </p>
+              <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#12206B;">
+                Aqui está o seu código de segurança de <strong>6 números</strong> para entrar no <strong>LibertyBag</strong>:
+              </p>
+              <div style="background-color:#FBF6EA; border:2px dashed #2346C8; border-radius:22px; padding:22px 16px; margin:0 auto 24px; max-width:320px;">
+                <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; color:#2346C8; margin-bottom:8px;">
+                  SEU CÓDIGO DE 6 DÍGITOS
+                </div>
+                <div style="font-size:38px; font-weight:800; letter-spacing:10px; color:#12206B; font-family:'Courier New', Courier, monospace;">
+                  ${params.code}
+                </div>
+              </div>
+              <p style="margin:0 0 18px; font-size:14px; line-height:1.5; color:#12206B;">
+                Ou, se preferir entrar com apenas <strong>1 toque</strong>, clique no botão azul abaixo:
+              </p>
+              <div style="margin:0 0 26px;">
+                <a href="${params.confirmLink}" style="display:inline-block; background-color:#2346C8; color:#FFFFFF; text-decoration:none; font-weight:800; font-size:16px; padding:16px 32px; border-radius:999px; box-shadow:0 6px 16px rgba(35,70,200,0.28);">
+                  Confirmar meu acesso agora →
+                </a>
+              </div>
+              <hr style="border:none; border-top:1px solid #BFD4F2; margin:24px 0;" />
+              <p style="margin:0; font-size:12px; line-height:1.5; color:#52608F;">
+                Este código vale por <strong>15 minutos</strong>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#BFD4F2; padding:16px 24px; text-align:center; font-size:12px; font-weight:700; color:#12206B;">
+              LibertyBag • Feito by Giulia Cardoso ✿
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+/**
  * Gera o código de 6 dígitos + link de confirmação, salva na tabela `auth_verifications`
- * (sem duplicar linhas em `users`) e envia o e-mail estilizado via EmailJS (`service_l1jy5d7` / `template_bz8lrt9`).
+ * (sem duplicar linhas em `users`) e envia o e-mail HTML estilizado via Webhook Gratuito (Google Apps Script).
+ * O envio via EmailJS está pausado conforme solicitado.
  */
 export async function sendVerificationCodeEmail(input: {
   email: string;
@@ -438,7 +585,7 @@ export async function sendVerificationCodeEmail(input: {
           id: canonicalUserId,
           name: existing.name || cleanName,
           email: cleanEmail,
-          emailVerified: false,
+          emailVerified: existing.emailVerified ?? false,
           verificationCode: code,
           verificationExpiresAt: existing.passwordToken || expiresAt,
           createdAt: nowISO,
@@ -452,49 +599,68 @@ export async function sendVerificationCodeEmail(input: {
     }
   }
 
-  // Envia o e-mail via SDK oficial @emailjs/browser
-  try {
-    await emailjs.send(
-      EMAILJS_DEFAULT_SERVICE_ID,
-      EMAILJS_DEFAULT_TEMPLATE_ID,
-      {
-        to_email: cleanEmail,
-        email: cleanEmail,
-        user_email: cleanEmail,
-        to_name: cleanName,
-        user_name: cleanName,
-        name: cleanName,
-        verification_code: code,
-        code,
-        passcode: code,
-        confirm_link: confirmLink,
-        link: confirmLink,
-        app_name: 'LibertyBag'
-      },
-      {
-        publicKey: EMAILJS_DEFAULT_PUBLIC_KEY
-      }
-    );
+  // Envio gratuito do E-mail HTML via Google Apps Script (VITE_FREE_EMAIL_WEBHOOK_URL)
+  const freeWebhookUrl = FREE_EMAIL_DEFAULT_WEBHOOK_URL;
 
-    return {
-      code,
-      confirmLink,
-      emailSent: true
-    };
-  } catch (err: unknown) {
-    const detail =
-      typeof err === 'object' && err !== null && 'text' in err
-        ? String((err as { text: string }).text)
-        : err instanceof Error
-          ? err.message
-          : 'Erro ao comunicar com o EmailJS';
-    return {
-      code,
-      confirmLink,
-      emailSent: false,
-      errorDetail: detail
-    };
+  if (freeWebhookUrl && freeWebhookUrl.startsWith('http')) {
+    try {
+      await fetch(freeWebhookUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          to_email: cleanEmail,
+          to_name: cleanName,
+          verification_code: code,
+          confirm_link: confirmLink,
+          html_body: buildStyledVerificationEmailHTML({
+            toName: cleanName,
+            toEmail: cleanEmail,
+            code,
+            confirmLink
+          })
+        })
+      });
+      return {
+        code,
+        confirmLink,
+        emailSent: true
+      };
+    } catch (err: unknown) {
+      const detail =
+        err instanceof Error ? err.message : 'Não foi possível conectar ao serviço de e-mail HTML.';
+      return {
+        code,
+        confirmLink,
+        emailSent: false,
+        errorDetail: detail
+      };
+    }
   }
+
+  /*
+   * Envio pelo EmailJS pausado para testar exclusivamente o envio com E-mail HTML gratuito:
+   *
+   * await emailjs.send(
+   *   EMAILJS_DEFAULT_SERVICE_ID,
+   *   EMAILJS_DEFAULT_TEMPLATE_ID,
+   *   {
+   *     to_email: cleanEmail,
+   *     to_name: cleanName,
+   *     verification_code: code,
+   *     confirm_link: confirmLink,
+   *     app_name: 'LibertyBag'
+   *   },
+   *   { publicKey: EMAILJS_DEFAULT_PUBLIC_KEY }
+   * );
+   */
+
+  return {
+    code,
+    confirmLink,
+    emailSent: false,
+    errorDetail: 'URL do webhook de e-mail HTML não configurada.'
+  };
 }
 
 /**
@@ -589,6 +755,15 @@ async function markUserVerifiedInDatabases(
   const cleanEmail = email.trim().toLowerCase();
   const now = new Date().toISOString();
 
+  const existingLocalAcc = memoryAccounts.get(cleanEmail);
+  if (existingLocalAcc) {
+    saveLocalAccount({
+      ...existingLocalAcc,
+      name: name || existingLocalAcc.name,
+      verifiedOnDevice: true
+    });
+  }
+
   // Garante um único usuário local em db.users sem duplicações
   const allLocalUsers = await db.users.toArray();
   const extraIds = allLocalUsers
@@ -626,6 +801,9 @@ async function markUserVerifiedInDatabases(
           email: cleanEmail,
           emailVerified: true,
           verificationCode: code,
+          ...(existing.passwordToken
+            ? { verificationExpiresAt: existing.passwordToken }
+            : {}),
           updatedAt: now,
           createdAt: now,
           deletedAt: null
@@ -751,21 +929,13 @@ export async function registerUserAccount(input: {
     }
   }
 
-  // 3. Salva conta localmente no aparelho (sem duplicar)
+  // 3. Salva conta localmente em memória aguardando a primeira confirmação do código de 6 dígitos no dispositivo
   saveLocalAccount({
     email: cleanEmail,
     name: cleanName,
     password: input.password,
-    createdAt: now
-  });
-
-  await db.users.put({
-    id: DEFAULT_USER_ID,
-    name: cleanName,
-    email: cleanEmail,
     createdAt: now,
-    updatedAt: now,
-    deletedAt: null
+    verifiedOnDevice: false
   });
 
   return { ok: true };
@@ -774,6 +944,7 @@ export async function registerUserAccount(input: {
 /**
  * Valida o login APENAS se a conta existir no banco e a senha estiver correta.
  * Nunca dispara código de confirmação se a conta não existir!
+ * Só exige código de 6 dígitos no login se for o PRIMEIRO acesso da conta neste dispositivo.
  */
 export async function signInUserAccount(input: {
   email: string;
@@ -781,6 +952,8 @@ export async function signInUserAccount(input: {
 }): Promise<{
   ok: boolean;
   name?: string;
+  requiresDeviceVerification?: boolean;
+  isFirstLogin?: boolean;
   error?: string;
   fieldErrors?: AuthFieldErrors;
 }> {
@@ -835,9 +1008,14 @@ export async function signInUserAccount(input: {
     };
   }
 
+  const alreadyVerifiedOnDevice = await isEmailVerifiedOnThisDevice(cleanEmail);
+  const isFirstLogin = existing.emailVerified === false && !alreadyVerifiedOnDevice;
+
   return {
     ok: true,
-    name: existing.name || localAcc?.name || cleanEmail.split('@')[0]
+    name: existing.name || localAcc?.name || cleanEmail.split('@')[0],
+    requiresDeviceVerification: !alreadyVerifiedOnDevice,
+    isFirstLogin
   };
 }
 

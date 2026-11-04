@@ -179,10 +179,24 @@ export const AddTransactionModal: React.FC = () => {
     }
   };
 
-  const handleSelectCategoryAndSave = async (categoryId: string, categoryName: string) => {
+  const handleSelectCategory = (categoryId: string) => {
+    setErrorMessage(null);
     setSelectedCategoryId(categoryId);
+  };
+
+  const handleSaveTransaction = async () => {
+    setErrorMessage(null);
+
     if (amountCents <= 0) {
       setErrorMessage('Digite primeiro um valor maior que zero usando os números.');
+      return;
+    }
+
+    const targetCat =
+      categories.find((c) => c.id === selectedCategoryId) || newlyCreatedCategory;
+
+    if (!targetCat) {
+      setErrorMessage('Escolha uma categoria no 3º passo antes de clicar em Adicionar.');
       return;
     }
 
@@ -199,7 +213,7 @@ export const AddTransactionModal: React.FC = () => {
         spaceId: activeSpaceId,
         amountCents,
         type,
-        categoryId,
+        categoryId: targetCat.id,
         date,
         description,
         paymentMethod,
@@ -207,7 +221,8 @@ export const AddTransactionModal: React.FC = () => {
         repeatMonthsCount: repeatMonthly && repeatFixedMonths ? repeatMonthsCount : null,
         installmentsCount: type === 'saida' && isInstallment ? installmentsCount : 1,
         hasDownPayment: type === 'saida' && isInstallment && hasDownPayment,
-        downPaymentCents: type === 'saida' && isInstallment && hasDownPayment ? downPaymentCents : 0,
+        downPaymentCents:
+          type === 'saida' && isInstallment && hasDownPayment ? downPaymentCents : 0,
         hasInterest: type === 'saida' && isInstallment && hasInterest,
         interestMode,
         totalWithInterestCents,
@@ -217,74 +232,55 @@ export const AddTransactionModal: React.FC = () => {
       const formattedValue = isInstallment
         ? installmentPlan.summaryText
         : formatCentsToBRL(amountCents);
-      showUndoToast(`Salvo em ${categoryName}: ${formattedValue}`, result.undo);
+      showUndoToast(`Salvo em ${targetCat.name}: ${formattedValue}`, result.undo);
       handleClose();
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSubmitWithEnter = () => {
-    if (amountCents <= 0) {
-      setErrorMessage('Digite primeiro um valor maior que zero.');
-      return;
-    }
-    const targetCat =
-      categories.find((c) => c.id === selectedCategoryId) ||
-      newlyCreatedCategory ||
-      categories[0];
-    if (!targetCat) {
-      setErrorMessage('Escolha uma categoria para salvar.');
-      return;
-    }
-    void handleSelectCategoryAndSave(targetCat.id, targetCat.name);
-  };
-
-  const handleNewCategoryCreated = async (savedCat: CategoryRecord) => {
+  const handleNewCategoryCreated = (savedCat: CategoryRecord) => {
     setType(savedCat.type);
     setNewlyCreatedCategory(savedCat);
     setSelectedCategoryId(savedCat.id);
-    if (amountCents > 0 && !isInstallment && !repeatMonthly) {
-      await handleSelectCategoryAndSave(savedCat.id, savedCat.name);
-    }
+    setErrorMessage(null);
   };
 
   const activeCategoryObj =
-    categories.find((c) => c.id === selectedCategoryId) ||
-    newlyCreatedCategory ||
-    categories[0] ||
-    null;
+    categories.find((c) => c.id === selectedCategoryId) || newlyCreatedCategory || null;
 
   return (
     <>
       <ModalShell
         open={isAddModalOpen}
         onClose={handleClose}
-        onPrimarySubmit={handleSubmitWithEnter}
-        title="Anote em 3 toques"
-        subtitle="1. Digite o valor → 2. Entrou ou Saiu → 3. Toque na categoria (ou pressione Enter)"
+        onPrimarySubmit={handleSaveTransaction}
+        title="Novo lançamento"
+        subtitle="1. Digite o valor → 2. Entrou ou Saiu → 3. Escolha a categoria e clique em Adicionar"
         maxWidthClass="max-w-4xl"
         zIndexClass="z-40"
         headerRight={
           <HelpButton
             title="Como anotar à vista ou parcelado"
-            explanation="Para gastos simples do dia a dia, digite o valor, escolha 'Saiu' e toque na categoria. Se foi no Cartão de Crédito, Pix Parcelado, teve entrada ou juros, escolha a forma de pagamento abaixo e marque 'Parcelar compra'."
-            example="Comprou uma geladeira de R$ 2.000 dando R$ 400 de entrada e 10x de R$ 180 com juros? Digite 200000, ative 'Parcelar', marque 'Dei uma entrada' (400) e 'Teve juros' (180 por parcela)."
+            explanation="Digite o valor, escolha se o dinheiro 'Saiu' ou 'Entrou', selecione a categoria e clique no botão azul 'Adicionar'. Se foi parcelado, com entrada ou juros, escolha a forma de pagamento abaixo."
+            example="Comprou uma geladeira de R$ 2.000 dando R$ 400 de entrada e 10x de R$ 180 com juros? Digite 200000, ative 'Parcelar', marque 'Dei uma entrada' (400), escolha a categoria 'Casa' e clique em 'Adicionar'."
           />
         }
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs sm:text-sm font-semibold text-blue-deep/85 dark:text-cream/85 truncate">
-              {amountCents > 0 ? (
+              {amountCents > 0 && activeCategoryObj ? (
                 <span>
-                  Pronto para salvar:{' '}
+                  Pronto para adicionar:{' '}
                   <strong className="text-blue-royal dark:text-sun">
                     {isInstallment ? installmentPlan.summaryText : formatCentsToBRL(amountCents)}
-                  </strong>
-                  {activeCategoryObj ? ` em ${activeCategoryObj.name}` : ''}
+                  </strong>{' '}
+                  em <strong>{activeCategoryObj.name}</strong>
                 </span>
+              ) : amountCents > 0 ? (
+                <span>Agora escolha uma categoria acima e clique em Adicionar</span>
               ) : (
-                <span>Digite o valor e toque na categoria (ou aperte Enter)</span>
+                <span>Digite o valor, escolha a categoria e clique em Adicionar</span>
               )}
             </div>
 
@@ -295,11 +291,11 @@ export const AddTransactionModal: React.FC = () => {
               <Button
                 variant="primary"
                 data-enter-submit="true"
-                onClick={handleSubmitWithEnter}
+                onClick={handleSaveTransaction}
                 disabled={isSaving}
               >
                 <Check size={18} />
-                <span>Confirmar e salvar</span>
+                <span>Adicionar</span>
               </Button>
             </div>
           </div>
@@ -828,10 +824,10 @@ export const AddTransactionModal: React.FC = () => {
               )}
             </div>
 
-            {/* Passo 3: Grade de Categorias + item final "Nova categoria" (sem '+' duplicado) */}
+            {/* Passo 3: Grade de Categorias + item final "Nova categoria" (só seleciona, conclui apenas ao clicar em Adicionar) */}
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-blue-deep/85 dark:text-cream/85 block mb-2 px-1">
-                3º Passo — Toque na categoria para salvar:
+                3º Passo — Escolha a categoria:
               </span>
 
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
@@ -843,13 +839,19 @@ export const AddTransactionModal: React.FC = () => {
                       key={cat.id}
                       type="button"
                       disabled={isSaving}
-                      onClick={() => handleSelectCategoryAndSave(cat.id, cat.name)}
-                      className={`min-h-[74px] p-2 rounded-2xl bg-white dark:bg-[#192B85] hover:bg-blue-sky/50 active:scale-95 border-2 flex flex-col items-center justify-center text-center gap-1.5 shadow-card transition-all ${
+                      aria-pressed={isSelected}
+                      onClick={() => handleSelectCategory(cat.id)}
+                      className={`relative min-h-[74px] p-2 rounded-2xl transition-all border-2 flex flex-col items-center justify-center text-center gap-1.5 shadow-card ${
                         isSelected
-                          ? 'border-orange ring-2 ring-sun'
-                          : 'border-blue-sky/60 hover:border-blue-royal'
+                          ? 'bg-blue-royal text-white border-blue-royal ring-2 ring-sun scale-[1.02]'
+                          : 'bg-white dark:bg-[#192B85] hover:bg-blue-sky/50 border-blue-sky/60 hover:border-blue-royal'
                       }`}
                     >
+                      {isSelected && (
+                        <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-sun text-blue-deep flex items-center justify-center shadow-xs">
+                          <Check size={13} strokeWidth={3} />
+                        </span>
+                      )}
                       <div
                         className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0"
                         style={{ backgroundColor: cat.color || '#2346C8' }}

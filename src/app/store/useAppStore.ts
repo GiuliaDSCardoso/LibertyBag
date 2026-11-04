@@ -44,7 +44,7 @@ interface AppState {
   completeOnboarding: (name?: string) => void;
   reopenOnboarding: () => void;
   setUserName: (name: string) => void;
-  loginUser: (payload: { name?: string; email?: string }) => void;
+  loginUser: (payload: { name?: string; email?: string; isFirstLogin?: boolean }) => void;
   logoutUser: () => void;
   setActiveSpaceId: (spaceId: string) => void;
   openAddModal: () => void;
@@ -56,7 +56,7 @@ interface AppState {
 export const useAppStore = create<AppState>()((set) => ({
   theme: 'praia',
   fontSize: 'normal',
-  hasSeenOnboarding: false,
+  hasSeenOnboarding: true,
   userName: '',
   userEmail: '',
   isAuthenticated: false,
@@ -74,9 +74,10 @@ export const useAppStore = create<AppState>()((set) => ({
     })),
   reopenOnboarding: () => set({ hasSeenOnboarding: false }),
   setUserName: (userName) => set({ userName: userName.trim() }),
-  loginUser: ({ name, email }) =>
+  loginUser: ({ name, email, isFirstLogin }) =>
     set((state) => ({
       isAuthenticated: true,
+      hasSeenOnboarding: isFirstLogin ? false : true,
       userName: name ? name.trim() : state.userName,
       userEmail: email ? email.trim().toLowerCase() : state.userEmail
     })),

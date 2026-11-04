@@ -230,12 +230,29 @@ describe('LibertyBag — Parcelamento Completo (Entrada, Juros, Crédito/Pix Par
     expect(wrongPassLogin.ok).toBe(false);
     expect(wrongPassLogin.fieldErrors?.password).toContain('Senha incorreta');
 
-    // 6. Login com conta existente e senha correta -> aprovado!
+    // 6. Primeiro login antes da verificação no dispositivo -> pede confirmação de 6 dígitos
     const validLogin = await signInUserAccount({
       email: 'giulia@libertybag.com',
       password: 'Praia2026!'
     });
     expect(validLogin.ok).toBe(true);
     expect(validLogin.name).toBe('Giulia Cardoso');
+    expect(validLogin.requiresDeviceVerification).toBe(true);
+
+    // 7. Confirma o código de 6 dígitos no dispositivo -> próximos logins no mesmo dispositivo não pedem mais confirmação!
+    const codeSent = await sendVerificationCodeEmail({
+      email: 'giulia@libertybag.com',
+      name: 'Giulia Cardoso',
+      purpose: 'signup'
+    });
+    const verified = await verifySixDigitCode('giulia@libertybag.com', codeSent.code);
+    expect(verified.valid).toBe(true);
+
+    const secondLoginSameDevice = await signInUserAccount({
+      email: 'giulia@libertybag.com',
+      password: 'Praia2026!'
+    });
+    expect(secondLoginSameDevice.ok).toBe(true);
+    expect(secondLoginSameDevice.requiresDeviceVerification).toBe(false);
   });
 });

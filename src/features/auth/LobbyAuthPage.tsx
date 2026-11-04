@@ -26,6 +26,7 @@ import {
   checkUserExistsByEmail,
   evaluatePasswordStrength,
   getRememberedCredentials,
+  getVerifiedDeviceUser,
   registerUserAccount,
   saveRememberedCredentials,
   sendVerificationCodeEmail,
@@ -76,6 +77,21 @@ export const LobbyAuthPage: React.FC = () => {
     setFeedbackMsg(null);
   };
 
+  // Se o dispositivo já teve um login confirmado antes, pula a tela de apresentação inicial ("lobby") e abre direto no Login
+  useEffect(() => {
+    void getVerifiedDeviceUser().then((deviceUser) => {
+      if (deviceUser.hasVerifiedUser) {
+        setStep((curr) => (curr === 'lobby' ? 'login' : curr));
+        if (deviceUser.email) {
+          setEmail((curr) => curr || deviceUser.email || '');
+        }
+        if (deviceUser.name) {
+          setName((curr) => curr || deviceUser.name || '');
+        }
+      }
+    });
+  }, []);
+
   // Verifica automaticamente se a pessoa clicou no link de confirmação enviado no e-mail (?confirm_email=...&code=...)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -93,7 +109,8 @@ export const LobbyAuthPage: React.FC = () => {
           window.history.replaceState({}, '', window.location.pathname);
           loginUser({
             name: res.name || urlEmail.split('@')[0],
-            email: urlEmail
+            email: urlEmail,
+            isFirstLogin: verifyPurpose === 'signup'
           });
           showUndoToast('E-mail confirmado pelo link! Bem-vindo(a)!', async () => {});
         } else {
@@ -102,7 +119,7 @@ export const LobbyAuthPage: React.FC = () => {
         }
       });
     }
-  }, [loginUser, showUndoToast]);
+  }, [loginUser, showUndoToast, verifyPurpose]);
 
   const handleStartLoginOrSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,6 +147,8 @@ export const LobbyAuthPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      let needsDeviceVerification = true;
+
       if (step === 'signup') {
         const reg = await registerUserAccount({
           name: name.trim(),
@@ -144,8 +163,9 @@ export const LobbyAuthPage: React.FC = () => {
           });
           return;
         }
+        needsDeviceVerification = true;
       } else {
-        // LOGIN: só prossegue e só envia código se a conta existir no banco e a senha estiver certa!
+        // LOGIN: só prossegue se a conta existir no banco e a senha estiver certa!
         const sign = await signInUserAccount({
           email: cleanEmail,
           password
@@ -162,6 +182,7 @@ export const LobbyAuthPage: React.FC = () => {
           userDisplayName = sign.name;
           if (!name) setName(sign.name);
         }
+        needsDeviceVerification = sign.requiresDeviceVerification ?? false;
       }
 
       // Salva preferência de "Lembrar senha"
@@ -176,10 +197,21 @@ export const LobbyAuthPage: React.FC = () => {
           : null
       );
 
+      // Se for LOGIN e não for o primeiro acesso no dispositivo, entra direto sem pedir o código de 6 dígitos!
+      if (step === 'login' && !needsDeviceVerification) {
+        loginUser({
+          name: userDisplayName,
+          email: cleanEmail,
+          isFirstLogin: false
+        });
+        showUndoToast(`Bem-vindo(a), ${userDisplayName}!`, async () => {});
+        return;
+      }
+
       const purpose = step === 'signup' ? 'signup' : 'login';
       setVerifyPurpose(purpose);
 
-      // Envia o e-mail com o código de 6 dígitos + link de confirmação pelo EmailJS
+      // Só envia o e-mail com o código de 6 dígitos no cadastro ou no primeiro acesso neste dispositivo!
       const emailRes = await sendVerificationCodeEmail({
         email: cleanEmail,
         name: userDisplayName,
@@ -192,12 +224,12 @@ export const LobbyAuthPage: React.FC = () => {
       if (emailRes.emailSent) {
         setFeedbackMsg({
           type: 'info',
-          text: `Enviamos um código de 6 dígitos e um link de confirmação para ${cleanEmail}! Confira sua caixa de entrada (e a pasta Spam).`
+          text: `Enviamos um e-mail HTML com o código de 6 dígitos e botão de confirmação para ${cleanEmail}! Confira sua caixa de entrada (e a pasta Spam).`
         });
       } else {
         setFeedbackMsg({
           type: 'error',
-          text: `Não foi possível enviar o e-mail (${emailRes.errorDetail || 'verifique o template no EmailJS'}).`
+          text: `Não foi possível enviar o e-mail no momento (${emailRes.errorDetail || 'erro de conexão'}). Tente reenviar abaixo.`
         });
       }
     } finally {
@@ -255,7 +287,7 @@ export const LobbyAuthPage: React.FC = () => {
       } else {
         setFeedbackMsg({
           type: 'error',
-          text: `O EmailJS retornou um aviso: ${emailRes.errorDetail || 'verifique o template no EmailJS'}.`
+          text: `Não foi possível enviar o e-mail de recuperação (${emailRes.errorDetail || 'erro de conexão'}).`
         });
       }
     } finally {
@@ -314,7 +346,8 @@ export const LobbyAuthPage: React.FC = () => {
       const finalName = res.name || name.trim() || email.split('@')[0];
       loginUser({
         name: finalName,
-        email: email.trim().toLowerCase()
+        email: email.trim().toLowerCase(),
+        isFirstLogin: verifyPurpose === 'signup'
       });
       showUndoToast(`Bem-vindo(a), ${finalName}!`, async () => {});
     } finally {
@@ -339,7 +372,7 @@ export const LobbyAuthPage: React.FC = () => {
       } else {
         setFeedbackMsg({
           type: 'error',
-          text: `Não foi possível enviar (${emailRes.errorDetail || 'confira o template no EmailJS'}).`
+          text: `Não foi possível reenviar o e-mail (${emailRes.errorDetail || 'erro de conexão'}).`
         });
       }
     } finally {
@@ -912,8 +945,8 @@ export const LobbyAuthPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* ANIMAÇÃO E DICA DE SENHA SEGURA (visível no Cadastro e quando digita senha) */}
-                    {step !== 'forgot' && (step === 'signup' || password.length > 0) && (
+                    {/* ANIMAÇÃO E DICA DE SENHA SEGURA (visível APENAS no Cadastro, nunca no Login) */}
+                    {step === 'signup' && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -1036,11 +1069,11 @@ export const LobbyAuthPage: React.FC = () => {
                       <Mail size={20} />
                       <span>
                         {isSubmitting
-                          ? 'Verificando e enviando código...'
+                          ? 'Verificando...'
                           : step === 'login'
-                            ? 'Entrar e receber código de confirmação'
+                            ? 'Entrar'
                             : step === 'signup'
-                              ? 'Criar conta e receber código no e-mail'
+                              ? 'Criar conta'
                               : 'Enviar código de recuperação'}
                       </span>
                     </Button>

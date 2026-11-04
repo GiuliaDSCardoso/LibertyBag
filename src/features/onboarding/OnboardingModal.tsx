@@ -130,7 +130,8 @@ export const OnboardingModal: React.FC = () => {
                     3
                   </span>
                   <p className="text-base">
-                    Toque na <strong>categoria</strong> (ex.: Mercado) e pronto, já salvou!
+                    Escolha a <strong>categoria</strong> (ex.: Mercado) e toque em{' '}
+                    <strong>Adicionar</strong>!
                   </p>
                 </div>
               </div>
