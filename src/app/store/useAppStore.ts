@@ -101,6 +101,13 @@ export const useAppStore = create<AppState>()((set) => ({
       try {
         sessionStorage.setItem('libertybag_logged_out_v1', '1');
         sessionStorage.removeItem('libertybag_active_session_v1');
+        // Limpa tokens do Supabase no localStorage para segurança financeira total
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('auth-token'))) {
+            localStorage.removeItem(key);
+          }
+        }
       } catch {
         // ignora
       }

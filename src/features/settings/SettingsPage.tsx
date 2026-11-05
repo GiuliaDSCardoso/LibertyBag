@@ -38,6 +38,7 @@ import {
 } from './exportService';
 import { importTransactionsFromFileWithUndo } from './importService';
 import { SpacesAndSyncCard } from '../spaces/SpacesAndSyncCard';
+import { PwaSettingsCard } from '../../components/pwa/PwaSettingsCard';
 
 export const SettingsPage: React.FC = () => {
   const {
@@ -167,6 +168,9 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           </Card>
+
+          {/* 1.1 Aplicativo no Celular / PWA */}
+          <PwaSettingsCard />
 
           {/* 2. Aparência: Tamanho da Letra e Tema (Praia / Noite) com espaçamento otimizado */}
           <Card variant="white" staggerIndex={1} className="space-y-5">

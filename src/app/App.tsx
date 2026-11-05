@@ -8,6 +8,7 @@ import { useAppStore } from './store/useAppStore';
 import { NavigationBars } from '../components/ui/NavigationBars';
 import { UndoToast } from '../components/ui/UndoToast';
 import { ScrollToTopButton } from '../components/ui/ScrollToTopButton';
+import { PwaInstallBanner } from '../components/pwa/PwaInstallBanner';
 import { OnboardingModal } from '../features/onboarding/OnboardingModal';
 import { AddTransactionModal } from '../features/transactions/AddTransactionModal';
 import { HomePage } from '../features/home/HomePage';
@@ -181,6 +182,9 @@ export const App: React.FC = () => {
 
         {/* Botão flutuante de Voltar ao Topo */}
         <ScrollToTopButton />
+
+        {/* Banner inteligente de instalação PWA (Android / iOS) */}
+        <PwaInstallBanner />
 
         {/* Aviso flutuante "Feito! Desfazer" */}
         <UndoToast />
