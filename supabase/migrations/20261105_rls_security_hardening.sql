@@ -1,7 +1,5 @@
 -- =============================================================================
 -- LIBERTYBAG — MIGRAÇÃO DE FORTALECIMENTO DE SEGURANÇA E ISOLAMENTO (RLS)
--- Aplicação: https://libertybag.vercel.app
--- Projeto Supabase: nrakzeaqgrreeoqwadqj
 -- =============================================================================
 
 -- 1. Habilitar Row Level Security (RLS) em todas as tabelas
@@ -19,7 +17,7 @@ ALTER TABLE IF EXISTS public.goal_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.trip_items ENABLE ROW LEVEL SECURITY;
 
--- 2. Função auxiliar segura para checar se o usuário atual é membro ativo do espaço
+-- 2. Função auxiliar com o nome correto da coluna "spaceId"
 CREATE OR REPLACE FUNCTION public.is_member_of_space(target_space_id text)
 RETURNS boolean
 LANGUAGE sql
@@ -54,7 +52,6 @@ WITH CHECK (
   OR auth.uid() = "authUserId"
 );
 
--- Permite leitura e inserção controlada para verificação anônima
 DROP POLICY IF EXISTS "Leitura de verificação anônima controlada" ON public.users;
 CREATE POLICY "Leitura de verificação anônima controlada"
 ON public.users
@@ -115,7 +112,7 @@ WITH CHECK (
   "spaceId" IS NOT NULL
 );
 
--- 6. Políticas para dados financeiros (isolamento por spaceId)
+-- 6. Políticas para dados financeiros (isolamento por "spaceId")
 DROP POLICY IF EXISTS "accounts_space_access" ON public.accounts;
 DROP POLICY IF EXISTS "Contas isoladas por espaço" ON public.accounts;
 CREATE POLICY "Contas isoladas por espaço"
@@ -197,5 +194,5 @@ TO authenticated, anon
 USING ("spaceId" IS NOT NULL)
 WITH CHECK ("spaceId" IS NOT NULL);
 
--- 7. Conceder permissões necessárias para anon e authenticated
+-- 7. Conceder permissões operacionais para anon e authenticated
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO anon, authenticated;
