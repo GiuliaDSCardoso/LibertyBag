@@ -15,8 +15,11 @@ import {
   Download,
   Upload,
   FileText,
-  LogOut
+  LogOut,
+  Compass,
+  Sparkles
 } from 'lucide-react';
+import { useAssistantStore } from '../assistant/useAssistantStore';
 import {
   useAppStore,
   type FontSizeScale,
@@ -41,6 +44,7 @@ import { SpacesAndSyncCard } from '../spaces/SpacesAndSyncCard';
 import { PwaSettingsCard } from '../../components/pwa/PwaSettingsCard';
 
 export const SettingsPage: React.FC = () => {
+  const { startTutorial, isMascotVisible, setMascotVisible } = useAssistantStore();
   const {
     theme,
     fontSize,
@@ -122,7 +126,7 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8" data-tutorial="settings-view">
       <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
         <div className="min-w-0 flex-1 pr-2">
           <h1 className="title-page text-blue-royal dark:text-sun">
@@ -142,8 +146,41 @@ export const SettingsPage: React.FC = () => {
 
       {/* Grid de 2 colunas em telas >= 1024px para aproveitar bem o espaço */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Coluna Esquerda (6 colunas): Como usar + Aparência e Leitura + Nome */}
+        {/* Coluna Esquerda (6 colunas): Tour com Mascote + Como usar + Aparência e Leitura + Nome */}
         <div className="lg:col-span-6 space-y-6">
+          {/* Assistente & Tutorial Guiado */}
+          <Card variant="framed" withFlowerWatermark staggerIndex={0}>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
+                  <Sparkles size={20} />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="title-section text-blue-royal dark:text-sun">
+                    Mascote & Tour Guiado
+                  </h2>
+                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+                    Faça o passeio guiado de 6 etapas pelo sistema com o Solzinho ou ajuste sua visibilidade.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <Button variant="primary" size="md" onClick={() => startTutorial(0)}>
+                  <Compass size={18} />
+                  <span>Iniciar tour guiado</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="md"
+                  onClick={() => setMascotVisible(!isMascotVisible)}
+                >
+                  <span>{isMascotVisible ? 'Ocultar mascote' : 'Mostrar mascote'}</span>
+                </Button>
+              </div>
+            </div>
+          </Card>
           {/* 1. Como usar (Reabrir Onboarding) — título e texto com 100% de largura, botão abaixo sem espremer */}
           <Card variant="framed" withFlowerWatermark staggerIndex={0}>
             <div className="space-y-3">
@@ -366,7 +403,8 @@ export const SettingsPage: React.FC = () => {
                 onClick={() => importFileInputRef.current?.click()}
               >
                 <Upload size={18} />
-                <span>{isImportingFile ? 'Importando...' : 'Importar CSV ou PDF'}</span>
+                <span className="hidden sm:inline">{isImportingFile ? 'Importando...' : 'Importar CSV ou PDF'}</span>
+                <span className="sm:hidden">{isImportingFile ? '...' : 'Importar'}</span>
               </Button>
 
               <Button
@@ -377,7 +415,7 @@ export const SettingsPage: React.FC = () => {
                 }}
               >
                 <Download size={18} />
-                <span>Baixar planilha (CSV)</span>
+                <span>Exportar CSV</span>
               </Button>
 
               <Button
@@ -387,7 +425,7 @@ export const SettingsPage: React.FC = () => {
                 }}
               >
                 <FileText size={18} />
-                <span>Relatório em PDF</span>
+                <span>Relatório PDF</span>
               </Button>
             </div>
           </Card>

@@ -193,7 +193,7 @@ export const TransactionsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8" data-tutorial="transactions-view">
       <input
         ref={fileInputRef}
         type="file"
@@ -247,7 +247,7 @@ export const TransactionsPage: React.FC = () => {
 
           {filteredTransactions.length > 0 && (
             <Button
-              variant={isSelectMode ? 'sun' : 'secondary'}
+              variant={isSelectMode ? 'sun' : 'danger'}
               size="md"
               onClick={() => {
                 setIsSelectMode((v) => {
@@ -257,8 +257,9 @@ export const TransactionsPage: React.FC = () => {
                 });
               }}
             >
-              <Trash2 size={18} />
-              <span>{isSelectMode ? 'Cancelar remoção' : 'Remover lançamentos'}</span>
+              <Trash2 size={17} />
+              <span>{isSelectMode ? 'Cancelar' : 'Remover'}</span>
+              <span className="hidden sm:inline">{isSelectMode ? ' remoção' : ' lançamentos'}</span>
             </Button>
           )}
 
@@ -268,8 +269,9 @@ export const TransactionsPage: React.FC = () => {
             disabled={isImporting}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload size={18} />
-            <span>{isImporting ? 'Importando...' : 'Importar CSV ou PDF'}</span>
+            <Upload size={17} />
+            <span className="hidden sm:inline">{isImporting ? 'Importando...' : 'Importar CSV ou PDF'}</span>
+            <span className="sm:hidden">{isImporting ? '...' : 'Importar'}</span>
           </Button>
 
           <HelpButton

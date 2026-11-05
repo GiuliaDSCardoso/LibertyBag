@@ -260,7 +260,7 @@ export const AddTransactionModal: React.FC = () => {
         onClose={handleClose}
         onPrimarySubmit={handleSaveTransaction}
         title="Novo lançamento"
-        subtitle="1. Digite o valor • 2. Entrou ou Saiu • 3. Escolha a categoria e clique em Adicionar"
+        subtitle="1. Digite o valor • 2. Entrou ou Saiu • 3. Escolha a categoria"
         maxWidthClass="max-w-4xl"
         zIndexClass="z-40"
         headerRight={

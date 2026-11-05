@@ -175,11 +175,58 @@ export function validateAuthForm(input: {
 }
 
 /**
- * Gera um código numérico aleatório de 6 dígitos (ex.: "482910").
+ * Gera um código numérico criptograficamente seguro de 6 dígitos (ex.: "482910") via Web Crypto CSPRNG.
  */
 export function generateSixDigitCode(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    const code = 100000 + (array[0] % 900000);
+    return String(code);
+  }
   const num = Math.floor(100000 + Math.random() * 900000);
   return String(num);
+}
+
+// ---------------------------------------------------------------------------
+// Rate Limiting em Memória com Backoff Progressivo contra Força Bruta
+// ---------------------------------------------------------------------------
+interface RateLimitRecord {
+  attempts: number;
+  blockedUntil: number;
+}
+const authRateLimitMap = new Map<string, RateLimitRecord>();
+
+export function checkAuthRateLimit(email: string): { allowed: boolean; waitSeconds?: number } {
+  const key = email.trim().toLowerCase();
+  const record = authRateLimitMap.get(key);
+  if (!record) return { allowed: true };
+
+  const now = Date.now();
+  if (record.blockedUntil > now) {
+    const waitSeconds = Math.ceil((record.blockedUntil - now) / 1000);
+    return { allowed: false, waitSeconds };
+  }
+  return { allowed: true };
+}
+
+export function recordFailedAuthAttempt(email: string): void {
+  const key = email.trim().toLowerCase();
+  const now = Date.now();
+  const record = authRateLimitMap.get(key) || { attempts: 0, blockedUntil: 0 };
+  record.attempts += 1;
+
+  // Bloqueio progressivo após 5 tentativas consecutivas com falha
+  if (record.attempts >= 5) {
+    const exponent = Math.min(record.attempts - 5, 4);
+    const penaltyMs = Math.pow(2, exponent) * 60 * 1000; // 1 min, 2 min, 4 min, 8 min, máx 16 min
+    record.blockedUntil = now + penaltyMs;
+  }
+  authRateLimitMap.set(key, record);
+}
+
+export function resetAuthRateLimit(email: string): void {
+  authRateLimitMap.delete(email.trim().toLowerCase());
 }
 
 // Limpa qualquer chave antiga de localStorage para garantir que nada de contas fique guardado no localhost
@@ -972,11 +1019,24 @@ export async function signInUserAccount(input: {
   }
 
   const cleanEmail = input.email.trim().toLowerCase();
+
+  // Verifica proteção contra ataques de força bruta / credential stuffing
+  const rateLimit = checkAuthRateLimit(cleanEmail);
+  if (!rateLimit.allowed) {
+    const rateLimitMsg = `Muitas tentativas com falha. Por segurança, aguarde ${rateLimit.waitSeconds} segundos antes de tentar novamente.`;
+    return {
+      ok: false,
+      error: rateLimitMsg,
+      fieldErrors: { password: rateLimitMsg }
+    };
+  }
+
   const localAcc = getLocalAccounts().find((a) => a.email === cleanEmail);
 
   // 1. Verifica primeiro se a conta existe no banco (Supabase ou local)
   const existing = await checkUserExistsByEmail(cleanEmail);
   if (!existing.exists) {
+    recordFailedAuthAttempt(cleanEmail);
     const notFoundMsg =
       'Não encontramos nenhuma conta com este e-mail. Use a aba "Criar conta" para se cadastrar primeiro.';
     return {
@@ -989,6 +1049,7 @@ export async function signInUserAccount(input: {
   // 2. Valida a senha via token salvo em public.users (Supabase) ou em memória na sessão atual
   const expectedToken = hashPasswordToken(cleanEmail, input.password);
   if (existing.passwordToken && existing.passwordToken !== expectedToken) {
+    recordFailedAuthAttempt(cleanEmail);
     const wrongPassMsg =
       'Senha incorreta para este e-mail. Confira a digitação ou clique em "Esqueci minha senha".';
     return {
@@ -999,6 +1060,7 @@ export async function signInUserAccount(input: {
   }
 
   if (localAcc && localAcc.password !== input.password) {
+    recordFailedAuthAttempt(cleanEmail);
     const wrongPassMsg =
       'Senha incorreta para este e-mail. Confira a digitação ou clique em "Esqueci minha senha".';
     return {
@@ -1007,6 +1069,9 @@ export async function signInUserAccount(input: {
       fieldErrors: { password: wrongPassMsg }
     };
   }
+
+  // Sucesso na autenticação: zera contador de falhas
+  resetAuthRateLimit(cleanEmail);
 
   const alreadyVerifiedOnDevice = await isEmailVerifiedOnThisDevice(cleanEmail);
   const isFirstLogin = existing.emailVerified === false && !alreadyVerifiedOnDevice;

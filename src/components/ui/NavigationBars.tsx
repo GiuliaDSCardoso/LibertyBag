@@ -66,6 +66,7 @@ export const NavigationBars: React.FC = () => {
           {/* Botão principal do menu lateral: rótulo curto, nowrap, gap 12px, px >= 16px, min-h 52px */}
           <button
             type="button"
+            data-tutorial="add-button"
             onClick={openAddModal}
             className="w-full min-h-[54px] px-5 mb-8 rounded-pill bg-blue-royal hover:bg-blue-deep active:scale-[0.98] text-white font-bold text-base shadow-soft inline-flex items-center justify-center gap-3 whitespace-nowrap transition-all hover-lift"
           >
@@ -176,7 +177,7 @@ export const NavigationBars: React.FC = () => {
           ))}
 
           {/* Botão Central Grande "+" para Adicionar */}
-          <div className="flex flex-col items-center justify-center px-1.5 -mt-5 shrink-0">
+          <div data-tutorial="add-button" className="flex flex-col items-center justify-center px-1.5 -mt-5 shrink-0">
             <motion.button
               type="button"
               onClick={openAddModal}

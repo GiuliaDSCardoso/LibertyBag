@@ -153,14 +153,19 @@ export const HomePage: React.FC = () => {
             size="lg"
             fullWidth
             onClick={openAddModal}
-            className="py-4 text-lg shadow-soft"
+            className="py-3 sm:py-4 text-base sm:text-lg shadow-soft"
           >
-            <Plus size={26} strokeWidth={2.75} />
-            <span>Adicionar gasto ou entrada</span>
+            <Plus size={24} strokeWidth={2.75} />
+            <span className="hidden sm:inline">Adicionar gasto ou entrada</span>
+            <span className="sm:hidden">Novo lançamento</span>
           </Button>
 
           {/* Os 3 Grandes Números do Mês */}
-          <section aria-label="Resumo do dinheiro no mês" className="space-y-5">
+          <section
+            aria-label="Resumo do dinheiro no mês"
+            data-tutorial="dashboard-summary"
+            className="space-y-5"
+          >
             {/* Card principal: Sobrou este mês */}
             <Card variant="framed" withFlowerWatermark staggerIndex={0}>
               <div className="flex items-center justify-between gap-3 mb-2">

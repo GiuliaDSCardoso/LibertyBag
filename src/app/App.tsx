@@ -9,6 +9,8 @@ import { NavigationBars } from '../components/ui/NavigationBars';
 import { UndoToast } from '../components/ui/UndoToast';
 import { ScrollToTopButton } from '../components/ui/ScrollToTopButton';
 import { PwaInstallBanner } from '../components/pwa/PwaInstallBanner';
+import { MascotAssistant } from '../features/assistant/MascotAssistant';
+import { TutorialOverlay } from '../features/assistant/TutorialOverlay';
 import { OnboardingModal } from '../features/onboarding/OnboardingModal';
 import { AddTransactionModal } from '../features/transactions/AddTransactionModal';
 import { HomePage } from '../features/home/HomePage';
@@ -185,6 +187,10 @@ export const App: React.FC = () => {
 
         {/* Banner inteligente de instalação PWA (Android / iOS) */}
         <PwaInstallBanner />
+
+        {/* Mascote Assistente Virtual e Tutorial Guiado */}
+        <MascotAssistant />
+        <TutorialOverlay />
 
         {/* Aviso flutuante "Feito! Desfazer" */}
         <UndoToast />

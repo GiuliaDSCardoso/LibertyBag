@@ -131,7 +131,7 @@ export const ModalShell: React.FC<ModalShellProps> = ({
             <div className="shrink-0 px-3.5 py-3 sm:px-6 sm:py-4 bg-white/90 dark:bg-[#162573]/95 border-b border-blue-sky/60 dark:border-blue-sky/20">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1 pr-1">
-                  <h2 className="font-serif italic text-[clamp(1.1rem,4.2vw,1.75rem)] font-bold text-blue-royal dark:text-sun leading-tight tracking-tight break-normal">
+                  <h2 className="font-serif italic text-[clamp(1.05rem,4vw,1.65rem)] font-bold text-blue-royal dark:text-sun leading-tight tracking-tight">
                     {title}
                   </h2>
                 </div>

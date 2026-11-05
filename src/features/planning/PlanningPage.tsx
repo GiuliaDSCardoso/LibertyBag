@@ -433,7 +433,7 @@ export const PlanningPage: React.FC = () => {
   }, [monthBudgets]);
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6 pb-8" data-tutorial="planning-view">
       {/* Cabeçalho */}
       <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
         <div className="min-w-0 flex-1 pr-2">

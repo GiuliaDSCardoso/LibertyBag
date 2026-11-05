@@ -37,8 +37,8 @@ export const Button: React.FC<ButtonProps> = ({
 
   const sizeStyles =
     size === 'lg'
-      ? 'min-h-[56px] px-6 py-3 text-lg rounded-pill'
-      : 'min-h-[52px] px-5 py-2.5 text-base rounded-pill';
+      ? 'min-h-[48px] sm:min-h-[56px] px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-lg rounded-pill gap-2.5 sm:gap-3'
+      : 'min-h-[40px] sm:min-h-[50px] px-3.5 sm:px-5 py-2 text-xs sm:text-base rounded-pill gap-2 sm:gap-3';
 
   return (
     <button
