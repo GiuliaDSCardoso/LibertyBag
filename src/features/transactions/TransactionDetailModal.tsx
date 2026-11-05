@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Check } from 'lucide-react';
+import { Trash2, Check, RefreshCw } from 'lucide-react';
 import { db, type PaymentMethod, type TransactionRecord, type TransactionType } from '../../db/dexie';
 import { useAppStore } from '../../app/store/useAppStore';
 import { formatCentsToBRL, parseReaisStringToCents } from '../../lib/money';
@@ -35,6 +35,35 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
     () => transaction?.paymentMethod || 'pix'
   );
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [updateSeries, setUpdateSeries] = useState(true);
+
+  const seriesCount = useLiveQuery(
+    async () => {
+      if (!transaction) return 0;
+      if (transaction.recurrenceId) {
+        return db.transactions
+          .where('spaceId')
+          .equals(transaction.spaceId)
+          .and((t) => !t.deletedAt && t.recurrenceId === transaction.recurrenceId)
+          .count();
+      }
+      if (transaction.installment?.groupId) {
+        return db.transactions
+          .where('spaceId')
+          .equals(transaction.spaceId)
+          .and((t) => !t.deletedAt && t.installment?.groupId === transaction.installment?.groupId)
+          .count();
+      }
+      return 0;
+    },
+    [
+      transaction?.id,
+      transaction?.recurrenceId,
+      transaction?.installment?.groupId,
+      transaction?.spaceId
+    ],
+    0
+  );
 
   const categories = useLiveQuery(
     async () =>
@@ -57,16 +86,24 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
     const chosenCategory =
       categories.find((c) => c.id === categoryId)?.id || categories[0]?.id || transaction.categoryId;
 
-    const { undo } = await updateTransactionWithUndo(transaction.id, {
-      amountCents: newCents,
-      type,
-      categoryId: chosenCategory,
-      date,
-      description: description.trim(),
-      paymentMethod
-    });
+    const res = await updateTransactionWithUndo(
+      transaction.id,
+      {
+        amountCents: newCents,
+        type,
+        categoryId: chosenCategory,
+        date,
+        description: description.trim(),
+        paymentMethod
+      },
+      { updateSeries: seriesCount > 1 ? updateSeries : false }
+    );
 
-    showUndoToast('Alteração salva!', undo);
+    if (res.isSeriesUpdate) {
+      showUndoToast(`Alteração salva em todos os ${res.updatedCount} meses!`, res.undo);
+    } else {
+      showUndoToast('Alteração salva!', res.undo);
+    }
     onClose();
   };
 
@@ -105,6 +142,27 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         }
       >
         <form onSubmit={handleSaveEdit} className="space-y-4">
+          {/* Aviso se o lançamento se repete em outros meses */}
+          {seriesCount > 1 && (
+            <div className="p-3.5 rounded-2xl bg-sun/20 dark:bg-sun/10 border-2 border-sun/60 flex items-start gap-3">
+              <RefreshCw size={20} className="text-orange shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <label className="flex items-center gap-2.5 cursor-pointer font-bold text-sm text-blue-deep dark:text-cream">
+                  <input
+                    type="checkbox"
+                    checked={updateSeries}
+                    onChange={(e) => setUpdateSeries(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-royal focus:ring-blue-royal"
+                  />
+                  <span>Alterar também em todos os {seriesCount} meses da repetição</span>
+                </label>
+                <p className="text-xs text-blue-deep/80 dark:text-cream/80 mt-1 leading-relaxed">
+                  Ao mudar a data (o dia do mês), valor ou categoria, todos os meses dessa repetição serão atualizados juntos automaticamente.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Tipo Entrou / Saiu */}
           <div className="grid grid-cols-2 gap-2.5">
             <button

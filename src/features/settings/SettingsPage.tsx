@@ -145,46 +145,46 @@ export const SettingsPage: React.FC = () => {
         <div className="lg:col-span-6 space-y-6">
           {/* 1. Como usar (Reabrir Onboarding) — título e texto com 100% de largura, botão abaixo sem espremer */}
           <Card variant="framed" withFlowerWatermark staggerIndex={0}>
-            <div className="space-y-4">
-              <div className="flex items-start gap-3.5 min-w-0">
-                <div className="w-12 h-12 rounded-2xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
-                  <BookOpen size={24} />
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
+                  <BookOpen size={20} />
                 </div>
                 <div className="min-w-0">
                   <h2 className="title-section text-blue-royal dark:text-sun">
                     Como usar o LibertyBag
                   </h2>
-                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
+                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
                     Reveja a explicação passo a passo de 3 telinhas sempre que quiser.
                   </p>
                 </div>
               </div>
 
               <div>
-                <Button variant="primary" onClick={reopenOnboarding}>
+                <Button variant="primary" size="md" onClick={reopenOnboarding}>
                   Ver explicação
                 </Button>
               </div>
             </div>
           </Card>
 
-          {/* 2. Aparência: Tamanho da Letra e Tema (Praia / Noite) com maior respiro vertical */}
-          <Card variant="white" staggerIndex={1} className="space-y-8">
-            <div className="flex items-center gap-3">
-              <Palette size={24} className="text-blue-royal dark:text-sun shrink-0" />
+          {/* 2. Aparência: Tamanho da Letra e Tema (Praia / Noite) com espaçamento otimizado */}
+          <Card variant="white" staggerIndex={1} className="space-y-5">
+            <div className="flex items-center gap-2.5">
+              <Palette size={22} className="text-blue-royal dark:text-sun shrink-0" />
               <h2 className="title-section">Aparência e Leitura</h2>
             </div>
 
             {/* Tamanho do texto */}
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 font-bold text-lg">
-                <Type size={20} className="text-blue-royal dark:text-sun shrink-0" />
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 font-bold text-base">
+                <Type size={18} className="text-blue-royal dark:text-sun shrink-0" />
                 <span>Tamanho da letra</span>
               </label>
-              <p className="text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed">
+              <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85">
                 Aumente se preferir letras maiores e mais fáceis de enxergar em todas as telas.
               </p>
-              <div className="grid grid-cols-3 gap-3 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 {(
                   [
                     { id: 'normal', label: 'Normal' },
@@ -197,7 +197,7 @@ export const SettingsPage: React.FC = () => {
                     type="button"
                     onClick={() => setFontSize(opt.id)}
                     aria-pressed={fontSize === opt.id}
-                    className={`min-h-[54px] px-3 rounded-2xl font-bold text-sm border-2 whitespace-nowrap transition-all flex items-center justify-center ${
+                    className={`min-h-[46px] px-3 rounded-xl font-bold text-xs sm:text-sm border-2 whitespace-nowrap transition-all flex items-center justify-center ${
                       fontSize === opt.id
                         ? 'bg-blue-royal text-white border-blue-royal shadow-xs'
                         : 'bg-cream dark:bg-blue-deep border-blue-sky'
@@ -210,17 +210,17 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Tema Claro (Praia) / Escuro (Noite) / Sistema */}
-            <div className="pt-6 border-t border-blue-sky/60 dark:border-blue-sky/20 space-y-3">
-              <span className="block font-bold text-lg">Cores da tela (Tema)</span>
-              <p className="text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed">
+            <div className="pt-4 border-t border-blue-sky/60 dark:border-blue-sky/20 space-y-2">
+              <span className="block font-bold text-base">Cores da tela (Tema)</span>
+              <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85">
                 O tema Praia usa fundo creme claro; o tema Noite usa azul escuro para descansar a vista.
               </p>
-              <div className="grid grid-cols-3 gap-3 pt-1">
+              <div className="grid grid-cols-3 gap-2 pt-1">
                 {(
                   [
-                    { id: 'praia', label: 'Praia (Claro)', icon: Sun },
-                    { id: 'noite', label: 'Noite (Escuro)', icon: Moon },
-                    { id: 'sistema', label: 'Automático', icon: Monitor }
+                    { id: 'praia', label: 'Praia', icon: Sun },
+                    { id: 'noite', label: 'Noite', icon: Moon },
+                    { id: 'sistema', label: 'Auto', icon: Monitor }
                   ] as { id: ThemeMode; label: string; icon: typeof Sun }[]
                 ).map(({ id, label, icon: Icon }) => (
                   <button
@@ -228,13 +228,13 @@ export const SettingsPage: React.FC = () => {
                     type="button"
                     onClick={() => setTheme(id)}
                     aria-pressed={theme === id}
-                    className={`min-h-[68px] p-3 rounded-2xl font-bold text-xs flex flex-col items-center justify-center gap-2 border-2 transition-all ${
+                    className={`min-h-[52px] p-2 rounded-xl font-bold text-xs flex flex-col items-center justify-center gap-1 border-2 transition-all ${
                       theme === id
                         ? 'bg-blue-royal text-white border-blue-royal shadow-xs'
                         : 'bg-cream dark:bg-blue-deep border-blue-sky'
                     }`}
                   >
-                    <Icon size={22} />
+                    <Icon size={18} />
                     <span className="text-center leading-tight">{label}</span>
                   </button>
                 ))}
@@ -290,31 +290,33 @@ export const SettingsPage: React.FC = () => {
           <SpacesAndSyncCard />
 
           {/* 5. Categorias — com botão primário "Nova categoria" visível direto no card */}
-          <Card variant="white" staggerIndex={3} className="space-y-5">
-            <div className="space-y-4">
-              <div className="flex items-start gap-3.5">
-                <div className="w-12 h-12 rounded-2xl bg-blue-sky/70 dark:bg-blue-royal/50 text-blue-royal dark:text-sun flex items-center justify-center shrink-0">
-                  <Tags size={24} />
+          <Card variant="white" staggerIndex={3} className="space-y-3.5">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-sky/70 dark:bg-blue-royal/50 text-blue-royal dark:text-sun flex items-center justify-center shrink-0">
+                  <Tags size={20} />
                 </div>
                 <div>
                   <h2 className="title-section">Categorias</h2>
-                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
+                  <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
                     Crie categorias novas ou mude nomes, desenhos e cores.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
                 <Button
                   variant="primary"
+                  size="md"
                   onClick={() => setQuickCreateCatOpen(true)}
                 >
-                  <Plus size={18} />
+                  <Plus size={16} />
                   <span>Nova categoria</span>
                 </Button>
 
                 <Button
                   variant="secondary"
+                  size="md"
                   onClick={() => setShowCategories((v) => !v)}
                 >
                   {showCategories ? 'Fechar lista' : 'Ver categorias'}
@@ -323,14 +325,14 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {showCategories && (
-              <div className="pt-4 border-t border-blue-sky/60">
+              <div className="pt-3 border-t border-blue-sky/60">
                 <CategoriesManager />
               </div>
             )}
           </Card>
 
-          {/* 5. Importar e Exportar meus dados (CSV / PDF) */}
-          <Card variant="white" staggerIndex={4} className="space-y-4">
+          {/* 6. Importar e Exportar meus dados (CSV / PDF) */}
+          <Card variant="white" staggerIndex={4} className="space-y-3.5">
             <input
               ref={importFileInputRef}
               type="file"
@@ -340,21 +342,22 @@ export const SettingsPage: React.FC = () => {
               aria-label="Selecionar arquivo CSV ou PDF para importar"
             />
 
-            <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-blue-sky/70 dark:bg-blue-royal/50 text-blue-royal dark:text-sun flex items-center justify-center shrink-0">
-                <Download size={24} />
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-sky/70 dark:bg-blue-royal/50 text-blue-royal dark:text-sun flex items-center justify-center shrink-0">
+                <Download size={20} />
               </div>
               <div>
                 <h2 className="title-section">Importar ou Guardar dados (CSV e PDF)</h2>
-                <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
-                  Importe extratos/planilhas em CSV ou PDF (ele identifica sozinho o valor, se entrou ou saiu e a categoria) ou baixe uma cópia dos seus dados.
+                <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+                  Importe extratos/planilhas em CSV ou PDF (com categoria automática) ou baixe uma cópia dos seus dados.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
               <Button
                 variant="primary"
+                size="md"
                 disabled={isImportingFile}
                 onClick={() => importFileInputRef.current?.click()}
               >

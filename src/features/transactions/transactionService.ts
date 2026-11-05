@@ -195,30 +195,36 @@ export async function createTransactionWithUndo(
   let recurrenceId: string | null = null;
 
   await db.transaction('rw', [db.transactions, db.recurrences], async () => {
-    // Só cadastra em "Contas a pagar" (db.recurrences) quando for uma saída (gasto/conta), nunca para entradas positivas!
-    if (input.repeatMonthly && input.type === 'saida') {
+    // Se ativou "repete em outros meses" (tanto para saída quanto para entrada),
+    // gera um recurrenceId para vincular todos os lançamentos da série!
+    if (input.repeatMonthly) {
       recurrenceId = generateId();
-      const nextMonthDate = format(addMonths(parseISO(input.date), 1), 'yyyy-MM-dd');
-      await db.recurrences.put({
-        id: recurrenceId,
-        userId,
-        spaceId,
-        rule: 'mensal',
-        nextDate: nextMonthDate,
-        active: true,
-        templateTitle: cleanDescription || 'Conta mensal',
-        amountCents: Math.round(input.amountCents),
-        categoryId: input.categoryId,
-        type: 'saida',
-        createdAt: now,
-        updatedAt: now,
-        deletedAt: null
-      });
+      if (input.type === 'saida') {
+        const nextMonthDate = format(addMonths(parseISO(input.date), 1), 'yyyy-MM-dd');
+        await db.recurrences.put({
+          id: recurrenceId,
+          userId,
+          spaceId,
+          rule: 'mensal',
+          nextDate: nextMonthDate,
+          active: true,
+          templateTitle: cleanDescription || 'Conta mensal',
+          amountCents: Math.round(input.amountCents),
+          categoryId: input.categoryId,
+          type: 'saida',
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null
+        });
+      }
     }
 
-    // Se ativou "repete em outros meses" com uma quantidade específica de meses (ex.: repetir por 6 meses)
-    if (input.repeatMonthly && input.repeatMonthsCount && input.repeatMonthsCount > 1) {
-      const count = Math.min(360, Math.floor(input.repeatMonthsCount));
+    // Se ativou "repete em outros meses" (com quantidade específica ou padrão de 12 meses)
+    if (input.repeatMonthly) {
+      const count =
+        input.repeatMonthsCount && input.repeatMonthsCount > 1
+          ? Math.min(360, Math.floor(input.repeatMonthsCount))
+          : 12;
       const baseDate = parseISO(input.date);
       const records: TransactionRecord[] = [];
       for (let i = 0; i < count; i++) {
@@ -376,8 +382,14 @@ export async function createTransactionWithUndo(
   return { createdIds, recurrenceId, undo };
 }
 
+export interface UpdateTransactionOptions {
+  updateSeries?: boolean; // Se true, atualiza todos os lançamentos da repetição/série
+}
+
 /**
- * Atualiza um lançamento existente e devolve função `undo()` para restaurar o estado anterior.
+ * Atualiza um lançamento existente. Se fizer parte de uma repetição (`recurrenceId`),
+ * propaga as alterações (inclusive dia da data) para todos os meses da série.
+ * Devolve função `undo()` atômica para restaurar todos com 1 toque.
  */
 export async function updateTransactionWithUndo(
   id: string,
@@ -386,25 +398,125 @@ export async function updateTransactionWithUndo(
       TransactionRecord,
       'amountCents' | 'type' | 'categoryId' | 'date' | 'description' | 'paymentMethod'
     >
-  >
-): Promise<{ undo: () => Promise<void> }> {
+  >,
+  options?: UpdateTransactionOptions
+): Promise<{ undo: () => Promise<void>; updatedCount: number; isSeriesUpdate: boolean }> {
   const previous = await db.transactions.get(id);
   if (!previous) {
-    return { undo: async () => {} };
+    return { undo: async () => {}, updatedCount: 0, isSeriesUpdate: false };
   }
 
   const now = new Date().toISOString();
+
+  // Verifica se o item pertence a uma série repetida
+  let siblings: TransactionRecord[] = [];
+  if (previous.recurrenceId) {
+    siblings = await db.transactions
+      .where('spaceId')
+      .equals(previous.spaceId)
+      .and((t) => !t.deletedAt && t.recurrenceId === previous.recurrenceId)
+      .toArray();
+  } else if (previous.installment?.groupId) {
+    siblings = await db.transactions
+      .where('spaceId')
+      .equals(previous.spaceId)
+      .and((t) => !t.deletedAt && t.installment?.groupId === previous.installment?.groupId)
+      .toArray();
+  }
+
+  const shouldUpdateSeries =
+    options?.updateSeries !== false && siblings.length > 1;
+
+  if (shouldUpdateSeries) {
+    // Extrai o novo dia se a data foi modificada (ex.: 2026-11-15 -> dia 15)
+    let newDayOfMonth: number | null = null;
+    if (updates.date) {
+      const parts = updates.date.split('-');
+      if (parts.length === 3) {
+        newDayOfMonth = Number(parts[2]);
+      }
+    }
+
+    const updatedSiblings: TransactionRecord[] = siblings.map((sib) => {
+      let targetDate = sib.date;
+      if (sib.id === id && updates.date) {
+        targetDate = updates.date;
+      } else if (newDayOfMonth !== null) {
+        // Alinha o dia no mês específico deste irmão respeitando a quantidade de dias do mês
+        const [sibYearStr, sibMonthStr] = sib.date.split('-');
+        const sibYear = Number(sibYearStr);
+        const sibMonth = Number(sibMonthStr);
+        const maxDaysInMonth = new Date(sibYear, sibMonth, 0).getDate();
+        const adjustedDay = Math.min(newDayOfMonth, maxDaysInMonth);
+        targetDate = `${sibYearStr}-${sibMonthStr}-${String(adjustedDay).padStart(2, '0')}`;
+      }
+
+      return {
+        ...sib,
+        amountCents:
+          updates.amountCents !== undefined ? updates.amountCents : sib.amountCents,
+        type: updates.type !== undefined ? updates.type : sib.type,
+        categoryId:
+          updates.categoryId !== undefined ? updates.categoryId : sib.categoryId,
+        description:
+          updates.description !== undefined ? updates.description : sib.description,
+        paymentMethod:
+          updates.paymentMethod !== undefined ? updates.paymentMethod : sib.paymentMethod,
+        date: targetDate,
+        updatedAt: now
+      };
+    });
+
+    await db.transactions.bulkPut(updatedSiblings);
+
+    // Se houver registro correspondente em db.recurrences, atualiza o modelo
+    if (previous.recurrenceId) {
+      const rec = await db.recurrences.get(previous.recurrenceId);
+      if (rec) {
+        await db.recurrences.update(previous.recurrenceId, {
+          amountCents: updates.amountCents ?? rec.amountCents,
+          categoryId: updates.categoryId ?? rec.categoryId,
+          templateTitle: updates.description ?? rec.templateTitle,
+          type: updates.type ?? rec.type,
+          updatedAt: now
+        });
+      }
+    }
+
+    void syncAllWithSupabase();
+
+    return {
+      updatedCount: updatedSiblings.length,
+      isSeriesUpdate: true,
+      undo: async () => {
+        const undoTime = new Date().toISOString();
+        const restoredSiblings = siblings.map((s) => ({
+          ...s,
+          updatedAt: undoTime
+        }));
+        await db.transactions.bulkPut(restoredSiblings);
+        void syncAllWithSupabase();
+      }
+    };
+  }
+
+  // Atualização individual (apenas este lançamento)
   await db.transactions.update(id, {
     ...updates,
     updatedAt: now
   });
 
+  void syncAllWithSupabase();
+
   return {
+    updatedCount: 1,
+    isSeriesUpdate: false,
     undo: async () => {
       await db.transactions.put({
         ...previous,
         updatedAt: new Date().toISOString()
       });
+      void syncAllWithSupabase();
     }
   };
 }

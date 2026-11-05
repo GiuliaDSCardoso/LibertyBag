@@ -140,27 +140,27 @@ export const SpacesAndSyncCard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 1. Card de Espaços (Pessoal + Compartilhado entre você, sua mãe e seu namorado) */}
-      <Card variant="white" className="space-y-4">
-        <div className="flex items-start gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
-            <Users size={24} />
+      <Card variant="white" className="space-y-3.5">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
+            <Users size={20} />
           </div>
           <div>
             <h2 className="title-section">Espaços da Família</h2>
-            <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
-              Alterne entre o seu dinheiro pessoal e os espaços compartilhados (ex.: com sua mãe ou com seu namorado), ou exclua um espaço que não usa mais.
+            <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+              Alterne entre o seu dinheiro pessoal e os espaços compartilhados, ou exclua um espaço.
             </p>
           </div>
         </div>
 
         {/* Lista de Espaços disponíveis */}
-        <div className="space-y-2.5 pt-1">
+        <div className="space-y-2 pt-0.5">
           {spaces.map((space) => {
             const isActive = space.id === activeSpaceId;
             return (
               <div
                 key={space.id}
-                className={`p-3.5 rounded-2xl border-2 flex flex-wrap items-center justify-between gap-3 transition-all ${
+                className={`p-3 rounded-xl border-2 flex flex-wrap items-center justify-between gap-2.5 transition-all ${
                   isActive
                     ? 'bg-blue-royal text-white border-blue-royal shadow-xs'
                     : 'bg-cream dark:bg-blue-deep border-blue-sky'
@@ -168,9 +168,9 @@ export const SpacesAndSyncCard: React.FC = () => {
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-base truncate">{space.name}</span>
+                    <span className="font-bold text-sm sm:text-base truncate">{space.name}</span>
                     <span
-                      className={`text-xs px-2.5 py-0.5 rounded-pill font-bold ${
+                      className={`text-xs px-2 py-0.5 rounded-pill font-bold ${
                         isActive
                           ? 'bg-sun text-blue-deep'
                           : 'bg-blue-sky/70 text-blue-deep dark:bg-[#192B85] dark:text-cream'
@@ -182,7 +182,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                   {space.inviteCode && (
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs opacity-90">
-                        Código p/ convidar: <strong>{space.inviteCode}</strong>
+                        Código: <strong>{space.inviteCode}</strong>
                       </span>
                       <button
                         type="button"
@@ -203,9 +203,9 @@ export const SpacesAndSyncCard: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   {isActive ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-pill bg-white/20">
-                      <Check size={16} />
-                      <span>Em uso agora</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-pill bg-white/20">
+                      <Check size={14} />
+                      <span>Em uso</span>
                     </span>
                   ) : (
                     <button
@@ -214,9 +214,9 @@ export const SpacesAndSyncCard: React.FC = () => {
                         setActiveSpaceId(space.id);
                         showUndoToast(`Mudou para "${space.name}"`, async () => {});
                       }}
-                      className="min-h-[42px] px-4 rounded-pill bg-blue-royal text-white text-xs font-bold"
+                      className="min-h-[38px] px-3.5 rounded-pill bg-blue-royal text-white text-xs font-bold"
                     >
-                      Abrir espaço
+                      Abrir
                     </button>
                   )}
 
@@ -225,13 +225,13 @@ export const SpacesAndSyncCard: React.FC = () => {
                     onClick={() => setSpaceToDelete(space)}
                     aria-label={`Apagar espaço ${space.name}`}
                     title={`Apagar espaço ${space.name}`}
-                    className={`min-h-[42px] px-3 rounded-pill text-xs font-bold inline-flex items-center gap-1.5 transition-colors ${
+                    className={`min-h-[38px] px-2.5 rounded-pill text-xs font-bold inline-flex items-center gap-1 transition-colors ${
                       isActive
                         ? 'bg-red-soft text-white hover:bg-red-soft/90'
                         : 'bg-red-soft/15 text-red-soft border border-red-soft/35 hover:bg-red-soft hover:text-white'
                     }`}
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={14} />
                     <span>Apagar</span>
                   </button>
                 </div>
@@ -240,52 +240,54 @@ export const SpacesAndSyncCard: React.FC = () => {
           })}
         </div>
 
-        <div className="flex flex-wrap gap-3 pt-1">
+        <div className="flex flex-wrap gap-2.5 pt-1">
           <Button
             variant="primary"
+            size="md"
             onClick={() => {
               setSpaceNameError(null);
               setNewSpaceModalOpen(true);
             }}
           >
-            <Plus size={18} />
-            <span>Criar espaço compartilhado</span>
+            <Plus size={16} />
+            <span>Criar espaço</span>
           </Button>
           <Button
             variant="secondary"
+            size="md"
             onClick={() => {
               setJoinError(null);
               setJoinModalOpen(true);
             }}
           >
-            <KeyRound size={18} />
-            <span>Tenho um código de convite</span>
+            <KeyRound size={16} />
+            <span>Entrar com código</span>
           </Button>
         </div>
       </Card>
 
       {/* 2. Card de Sincronização Segura com a Nuvem */}
-      <Card variant="white" className="space-y-4">
+      <Card variant="white" className="space-y-3.5">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-blue-royal text-white flex items-center justify-center shrink-0">
-              <Cloud size={24} />
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-royal text-white flex items-center justify-center shrink-0">
+              <Cloud size={20} />
             </div>
             <div>
               <h2 className="title-section">Nuvem e Sincronização</h2>
-              <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
+              <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
                 {syncStatusText}
               </p>
               {userEmail && (
-                <p className="text-xs font-bold text-green-ok mt-1">
-                  Conta ativa: {userName || 'Família'} ({userEmail})
+                <p className="text-xs font-bold text-green-ok mt-0.5">
+                  Conta: {userName || 'Família'} ({userEmail})
                 </p>
               )}
             </div>
           </div>
 
           <span
-            className={`min-h-[38px] px-3.5 rounded-pill text-xs font-extrabold inline-flex items-center gap-1.5 shrink-0 ${
+            className={`min-h-[32px] px-2.5 rounded-pill text-xs font-extrabold inline-flex items-center gap-1 shrink-0 ${
               configState.isConfigured
                 ? 'bg-green-ok/15 text-green-ok border border-green-ok/35'
                 : 'bg-blue-sky/50 text-blue-deep'
@@ -297,11 +299,12 @@ export const SpacesAndSyncCard: React.FC = () => {
 
         <Button
           variant="primary"
+          size="md"
           fullWidth
           onClick={handleSyncNow}
           disabled={isSyncing}
         >
-          <RefreshCw size={18} className={isSyncing ? 'animate-spin' : ''} />
+          <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
           <span>
             {isSyncing ? 'Sincronizando...' : 'Sincronizar agora com a nuvem'}
           </span>

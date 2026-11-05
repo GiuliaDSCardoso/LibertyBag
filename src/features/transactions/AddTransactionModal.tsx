@@ -271,8 +271,8 @@ export const AddTransactionModal: React.FC = () => {
           />
         }
         footer={
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-xs sm:text-sm font-semibold text-blue-deep/85 dark:text-cream/85 truncate">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4">
+            <div className="text-xs sm:text-sm font-semibold text-blue-deep/85 dark:text-cream/85 text-center sm:text-left">
               {amountCents > 0 && activeCategoryObj ? (
                 <span>
                   Pronto para adicionar:{' '}
@@ -288,7 +288,7 @@ export const AddTransactionModal: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-2.5 ml-auto">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
               <Button variant="secondary" onClick={handleClose}>
                 Cancelar
               </Button>

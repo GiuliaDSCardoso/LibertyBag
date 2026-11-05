@@ -128,10 +128,10 @@ export const ModalShell: React.FC<ModalShellProps> = ({
             className={`relative z-10 w-full ${maxWidthClass} max-h-[90vh] flex flex-col bg-cream dark:bg-blue-deep text-blue-deep dark:text-cream rounded-card-lg border-2 border-blue-royal shadow-soft overflow-hidden overscroll-contain`}
           >
             {/* Cabeçalho Fixo Enquadrado e Responsivo no Mobile */}
-            <div className="shrink-0 px-4 py-3 sm:px-6 sm:py-4 bg-white/85 dark:bg-[#162573]/90 border-b border-blue-sky/60 dark:border-blue-sky/20">
-              <div className="flex items-center justify-between gap-2.5">
+            <div className="shrink-0 px-3.5 py-3 sm:px-6 sm:py-4 bg-white/90 dark:bg-[#162573]/95 border-b border-blue-sky/60 dark:border-blue-sky/20">
+              <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1 pr-1">
-                  <h2 className="font-serif italic text-xl sm:text-2xl lg:text-3xl font-bold text-blue-royal dark:text-sun leading-tight tracking-tight">
+                  <h2 className="font-serif italic text-[clamp(1.1rem,4.2vw,1.75rem)] font-bold text-blue-royal dark:text-sun leading-tight tracking-tight break-normal">
                     {title}
                   </h2>
                 </div>
@@ -142,9 +142,9 @@ export const ModalShell: React.FC<ModalShellProps> = ({
                     type="button"
                     onClick={onClose}
                     aria-label="Fechar janela"
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-cream dark:bg-blue-deep border border-blue-sky/80 flex items-center justify-center hover:bg-blue-sky/40 transition-colors shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-cream dark:bg-blue-deep border border-blue-sky/80 flex items-center justify-center hover:bg-blue-sky/40 transition-colors shrink-0"
                   >
-                    <X size={20} />
+                    <X size={18} />
                   </button>
                 </div>
               </div>

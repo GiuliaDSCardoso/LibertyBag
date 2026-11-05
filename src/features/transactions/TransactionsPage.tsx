@@ -7,9 +7,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Filter,
+  LayoutGrid,
   Plus,
   Search,
   Square,
+  Table,
   Trash2,
   Upload,
   X
@@ -31,13 +33,32 @@ import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { AnimatedMoney } from '../../components/ui/AnimatedMoney';
 import { importTransactionsFromFileWithUndo } from '../settings/importService';
-import { bulkSoftDeleteTransactionsWithUndo } from './transactionService';
+import {
+  bulkSoftDeleteTransactionsWithUndo,
+  softDeleteTransactionWithUndo
+} from './transactionService';
 import { TransactionDetailModal } from './TransactionDetailModal';
+import { TransactionsTableView } from './TransactionsTableView';
 
 export const TransactionsPage: React.FC = () => {
   const { activeSpaceId, activeUserId, openAddModal, showUndoToast } = useAppStore();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Modo de visualização: 'cards' (padrão) ou 'table' (estilo planilha Excel)
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('libertybag_tx_view_mode') as 'cards' | 'table') || 'cards';
+    }
+    return 'cards';
+  });
+
+  const handleSetViewMode = (mode: 'cards' | 'table') => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('libertybag_tx_view_mode', mode);
+    }
+  };
 
   const [mode, setMode] = useState<PeriodMode>('month');
   const [refDate, setRefDate] = useState<Date>(() => new Date());
@@ -194,6 +215,36 @@ export const TransactionsPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Alternador de Modo de Visualização: Cartões vs Tabela Excel */}
+          <div className="inline-flex items-center p-1 bg-white dark:bg-[#192B85] rounded-xl border border-blue-sky/70 shadow-xs">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('cards')}
+              className={`min-h-[38px] px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'cards'
+                  ? 'bg-blue-royal text-white shadow-xs'
+                  : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-blue-royal/30'
+              }`}
+              title="Visualização em cartões dia a dia"
+            >
+              <LayoutGrid size={15} />
+              <span>Cartões</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('table')}
+              className={`min-h-[38px] px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === 'table'
+                  ? 'bg-blue-royal text-white shadow-xs'
+                  : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-blue-royal/30'
+              }`}
+              title="Visualização em tabela estilo Excel com edição rápida de data, valor e repetições"
+            >
+              <Table size={15} />
+              <span>Tabela Excel</span>
+            </button>
+          </div>
+
           {filteredTransactions.length > 0 && (
             <Button
               variant={isSelectMode ? 'sun' : 'secondary'}
@@ -229,9 +280,9 @@ export const TransactionsPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Layout em 2 colunas em telas >= 1024px: Controles/Resumo à esquerda, Lista à direita */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-5 space-y-5">
+      {/* Layout adaptativo: Grade de 2 colunas para Cartões, ou Largura Total para Tabela Excel */}
+      <div className={viewMode === 'table' ? 'space-y-6' : 'grid grid-cols-1 lg:grid-cols-12 gap-6 items-start'}>
+        <div className={viewMode === 'table' ? 'grid grid-cols-1 md:grid-cols-2 gap-5 items-start' : 'lg:col-span-5 space-y-5'}>
           {/* Alternador Dia | Semana | Mês + Setas de período com maior espaçamento vertical */}
           <Card variant="white" staggerIndex={0} className="space-y-6">
             <div
@@ -334,7 +385,7 @@ export const TransactionsPage: React.FC = () => {
 
           {/* Painel de Busca e Filtro por Categoria */}
           {showFilters && (
-            <Card variant="white" className="space-y-4">
+            <Card variant="white" className={`space-y-4 ${viewMode === 'table' ? 'md:col-span-2' : ''}`}>
               <div className="flex items-center justify-between">
                 <h2 className="font-bold text-base">Procurar nos lançamentos</h2>
                 {hasActiveFilter && (
@@ -388,8 +439,8 @@ export const TransactionsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Coluna Direita: Lista agrupada por dia ou Estado Vazio */}
-        <div className="lg:col-span-7 space-y-5">
+        {/* Coluna Direita (modo cartões) ou Seção Principal (modo tabela) */}
+        <div className={viewMode === 'table' ? 'space-y-5' : 'lg:col-span-7 space-y-5'}>
           {/* Barra de Ações do Modo de Seleção / Remoção em Massa */}
           {isSelectMode && filteredTransactions.length > 0 && (
             <Card variant="sun" className="p-3 sm:p-4 space-y-3 shadow-xs">
@@ -466,6 +517,26 @@ export const TransactionsPage: React.FC = () => {
                     }
                   : openAddModal
               }
+            />
+          ) : viewMode === 'table' ? (
+            <TransactionsTableView
+              transactions={filteredTransactions}
+              categories={categories}
+              isSelectMode={isSelectMode}
+              selectedIds={selectedIds}
+              onToggleSelect={(id) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                });
+              }}
+              onOpenDetail={(tx) => setSelectedTx(tx)}
+              onDeleteSingle={async (tx) => {
+                const { undo } = await softDeleteTransactionWithUndo(tx.id);
+                showUndoToast(`Lançamento "${tx.description || 'sem nome'}" apagado!`, undo);
+              }}
             />
           ) : (
             <div className="space-y-6">
