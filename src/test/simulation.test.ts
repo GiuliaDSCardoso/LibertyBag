@@ -85,12 +85,20 @@ describe('LibertyBag — Simulador de Parcelamento (Fase 3.5)', () => {
     expect(retrieved['c6'].pixLimitCents).toBe(80000);
   });
 
-  it('inclui PicPay na lista de bancos com taxas de crédito e pix parcelado', () => {
+  it('inclui PicPay na lista de bancos com taxas reais de crédito e pix parcelado e tarifa', () => {
     const picpay = POPULAR_BANKS.find((b) => b.id === 'picpay');
     expect(picpay).toBeDefined();
     expect(picpay?.name).toBe('PicPay');
     expect(picpay?.color).toBe('#11C76F');
-    expect(picpay?.creditMonthlyRate).toBe(3.29);
-    expect(picpay?.pixMonthlyRate).toBe(3.89);
+    expect(picpay?.creditMonthlyRate).toBe(5.49);
+    expect(picpay?.pixMonthlyRate).toBe(5.493);
+    expect(picpay?.pixServiceFeePercent).toBe(4.99);
+
+    // Validação idêntica aos dados reais do aplicativo PicPay (print do usuário: R$ 1.000 em 6x = R$ 210,12)
+    const picPayRealSim = calculateInstallment(100000, 5.493, 6, 4.99);
+    expect(picPayRealSim.installmentCents).toBe(21012); // R$ 210,12 exatos
+    expect(picPayRealSim.serviceFeeCents).toBe(4990); // R$ 49,90 tarifa de serviço
+    expect(picPayRealSim.financingBaseCents).toBe(104990); // R$ 1.049,90 base financiada
+    expect(picPayRealSim.cetMonthlyPercent).toBeGreaterThan(6.0); // CET real superior aos juros nominais
   });
 });

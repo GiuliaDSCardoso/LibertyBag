@@ -58,6 +58,7 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
 
   // Ajustes de taxa customizada e limites salvos
   const [customRateMap, setCustomRateMap] = useState<Record<string, number>>({});
+  const [customFeeMap, setCustomFeeMap] = useState<Record<string, number>>({});
   const [isEditingRate, setIsEditingRate] = useState<boolean>(false);
   const [limitsMap, setLimitsMap] = useState<StoredLimitsMap>(() =>
     getSavedBankLimits(activeUserId, activeSpaceId)
@@ -78,7 +79,7 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
     return POPULAR_BANKS.find((b) => b.id === selectedBankId) || POPULAR_BANKS[0];
   }, [selectedBankId]);
 
-  // Taxa ativa do banco atual
+  // Taxa de juros ativa do banco atual
   const currentRate = useMemo(() => {
     if (customRateMap[selectedBank.id] !== undefined) {
       return customRateMap[selectedBank.id];
@@ -88,6 +89,16 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
       : selectedBank.pixMonthlyRate;
   }, [selectedBank, simulationType, customRateMap]);
 
+  // Tarifa de serviço ativa do banco atual
+  const currentServiceFee = useMemo(() => {
+    if (customFeeMap[selectedBank.id] !== undefined) {
+      return customFeeMap[selectedBank.id];
+    }
+    return simulationType === 'credito'
+      ? selectedBank.creditServiceFeePercent
+      : selectedBank.pixServiceFeePercent;
+  }, [selectedBank, simulationType, customFeeMap]);
+
   // Simulação completa de todos os bancos
   const simulation = useMemo(() => {
     return simulateAllBanks({
@@ -95,9 +106,10 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
       installments,
       simulationType,
       limits: limitsMap,
-      customRateMap
+      customRateMap,
+      customFeeMap
     });
-  }, [amountCents, installments, simulationType, limitsMap, customRateMap]);
+  }, [amountCents, installments, simulationType, limitsMap, customRateMap, customFeeMap]);
 
   // Item do banco atualmente selecionado
   const currentBankItem = useMemo(() => {
@@ -227,7 +239,7 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
             {/* Seletor de Banco Brasileiro */}
             <div className="space-y-3 pt-6 border-t border-blue-sky/40 dark:border-white/10">
               <label htmlFor="sim-bank" className="block text-xs sm:text-sm font-extrabold uppercase tracking-wider text-blue-royal-ink dark:text-sun">
-                Escolha o Banco
+                Escolha o Banco (Taxas Reais do Mercado)
               </label>
               <CustomSelect
                 id="sim-bank"
@@ -237,6 +249,8 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                 options={POPULAR_BANKS.map((b) => {
                   const rate =
                     simulationType === 'credito' ? b.creditMonthlyRate : b.pixMonthlyRate;
+                  const fee =
+                    simulationType === 'credito' ? b.creditServiceFeePercent : b.pixServiceFeePercent;
                   return {
                     value: b.id,
                     label: b.name,
@@ -244,7 +258,7 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                     description: b.description,
                     badge: (
                       <span className="text-xs px-2 py-0.5 rounded-pill font-bold bg-blue-sky/30 dark:bg-white/10 text-blue-deep dark:text-cream">
-                        {rate.toFixed(2)}% a.m.
+                        {rate.toFixed(2)}% a.m.{fee > 0 ? ` (+${fee.toFixed(2)}% taxa)` : ''}
                       </span>
                     )
                   };
@@ -256,39 +270,65 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditingRate(!isEditingRate)}
-                  className="inline-flex items-center gap-1.5 text-blue-royal dark:text-sun font-bold underline hover:opacity-80 transition-opacity"
+                  className="inline-flex items-center gap-1.5 text-blue-royal dark:text-sun font-bold underline hover:opacity-80 transition-opacity cursor-pointer"
                 >
                   <Sliders size={13} />
                   <span>
-                    {isEditingRate ? 'Usar taxa padrão do banco' : 'Ajustar taxa de juros manualmente'}
+                    {isEditingRate ? 'Usar taxas padrão do banco' : 'Ajustar taxa de juros ou tarifa'}
                   </span>
                 </button>
                 <span className="font-extrabold text-blue-deep/75 dark:text-cream/75">
-                  Taxa ativa: {currentRate.toFixed(2)}% a.m.
+                  Taxa ativa: {currentRate.toFixed(2)}% a.m. {currentServiceFee > 0 ? `(+${currentServiceFee.toFixed(2)}% taxa)` : ''}
                 </span>
               </div>
 
               {isEditingRate && (
-                <div className="p-3.5 rounded-2xl bg-blue-sky/25 dark:bg-white/5 border border-blue-sky/40 dark:border-white/10 space-y-2 mt-2">
-                  <label htmlFor="custom-rate" className="block text-xs font-bold">
-                    Sua taxa personalizada no {selectedBank.shortName} (% ao mês):
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="custom-rate"
-                      type="number"
-                      step="0.05"
-                      min="0"
-                      max="20"
-                      value={currentRate}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        setCustomRateMap((prev) => ({ ...prev, [selectedBank.id]: val }));
-                      }}
-                      className="w-32 min-h-[42px] px-3 rounded-xl bg-white dark:bg-[#0D152D] border border-blue-sky font-bold text-center"
-                    />
-                    <span className="text-xs font-bold">% ao mês</span>
+                <div className="p-3.5 rounded-2xl bg-blue-sky/25 dark:bg-white/5 border border-blue-sky/40 dark:border-white/10 space-y-3 mt-2">
+                  <div>
+                    <label htmlFor="custom-rate" className="block text-xs font-bold mb-1">
+                      Taxa de juros no {selectedBank.shortName} (% ao mês):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="custom-rate"
+                        type="number"
+                        step="0.05"
+                        min="0"
+                        max="25"
+                        value={currentRate}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setCustomRateMap((prev) => ({ ...prev, [selectedBank.id]: val }));
+                        }}
+                        className="w-28 min-h-[40px] px-3 rounded-xl bg-white dark:bg-[#0D152D] border border-blue-sky font-bold text-center"
+                      />
+                      <span className="text-xs font-bold">% ao mês</span>
+                    </div>
                   </div>
+
+                  {simulationType === 'pix_parcelado' && (
+                    <div>
+                      <label htmlFor="custom-fee" className="block text-xs font-bold mb-1">
+                        Tarifa de transação do Pix no Cartão (% única):
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="custom-fee"
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="15"
+                          value={currentServiceFee}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setCustomFeeMap((prev) => ({ ...prev, [selectedBank.id]: val }));
+                          }}
+                          className="w-28 min-h-[40px] px-3 rounded-xl bg-white dark:bg-[#0D152D] border border-blue-sky font-bold text-center"
+                        />
+                        <span className="text-xs font-bold">% tarifa única</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -353,6 +393,9 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                   <h3 className="font-bold text-base sm:text-lg">{selectedBank.name}</h3>
                   <p className="text-xs text-blue-deep/75 dark:text-cream/75">
                     {simulationType === 'credito' ? 'Cartão de Crédito' : 'Pix Parcelado'} • {currentRate.toFixed(2)}% a.m.
+                    {currentBankItem.serviceFeePercent > 0 && (
+                      <span className="ml-1 text-orange font-semibold">(+{currentBankItem.serviceFeePercent}% taxa Pix)</span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -372,11 +415,16 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
               </div>
               <p className="text-xs text-blue-deep/60 dark:text-cream/60 pt-1">
                 Total final a ser pago: <strong>{formatCentsToBRL(currentBankItem.finalTotalCents)}</strong>
+                {currentBankItem.totalAdditionalCostCents > 0 && (
+                  <span className="ml-1 text-red-soft font-semibold">
+                    (+{formatCentsToBRL(currentBankItem.totalAdditionalCostCents)} de acréscimo)
+                  </span>
+                )}
               </p>
             </div>
 
-            {/* Três Métricas Claras */}
-            <div className="grid grid-cols-3 gap-3 text-center">
+            {/* Quatro Métricas Claras e Transparentes */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center">
               <div className="p-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-white/50 dark:border-white/10">
                 <span className="text-[11px] font-bold text-blue-deep/70 dark:text-cream/70 block">
                   Original
@@ -388,11 +436,26 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
 
               <div className="p-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-white/50 dark:border-white/10">
                 <span className="text-[11px] font-bold text-blue-deep/70 dark:text-cream/70 block">
-                  Juros Totais
+                  Tarifa Pix
                 </span>
                 <span
                   className={`font-bold text-xs sm:text-sm ${
-                    currentBankItem.totalInterestCents > 0 ? 'text-red-soft' : 'text-green-ok'
+                    currentBankItem.serviceFeeCents > 0 ? 'text-orange font-bold' : 'text-blue-deep/60 dark:text-cream/60'
+                  }`}
+                >
+                  {currentBankItem.serviceFeeCents > 0
+                    ? `+${formatCentsToBRL(currentBankItem.serviceFeeCents)}`
+                    : 'R$ 0,00'}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-white/50 dark:border-white/10">
+                <span className="text-[11px] font-bold text-blue-deep/70 dark:text-cream/70 block">
+                  Juros Price
+                </span>
+                <span
+                  className={`font-bold text-xs sm:text-sm ${
+                    currentBankItem.totalInterestCents > 0 ? 'text-red-soft font-bold' : 'text-green-ok'
                   }`}
                 >
                   +{formatCentsToBRL(currentBankItem.totalInterestCents)}
@@ -401,10 +464,10 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
 
               <div className="p-3 rounded-2xl bg-white/70 dark:bg-white/5 border border-white/50 dark:border-white/10">
                 <span className="text-[11px] font-bold text-blue-deep/70 dark:text-cream/70 block">
-                  Taxa Mensal
+                  CET Real
                 </span>
                 <span className="font-bold text-xs sm:text-sm text-blue-deep dark:text-cream">
-                  {currentRate.toFixed(2)}%
+                  {currentBankItem.cetMonthlyPercent.toFixed(2)}% a.m.
                 </span>
               </div>
             </div>
@@ -533,7 +596,7 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
               <button
                 type="button"
                 onClick={() => setShowFullComparison(!showFullComparison)}
-                className="w-full text-xs font-extrabold uppercase tracking-wider text-blue-deep flex items-center justify-center gap-1.5 py-1"
+                className="w-full text-xs font-extrabold uppercase tracking-wider text-blue-deep dark:text-cream hover:opacity-80 transition-opacity flex items-center justify-center gap-1.5 py-1"
               >
                 <span>
                   {showFullComparison ? 'Ocultar comparação detalhada' : 'Ver ranking de todos os bancos'}
@@ -542,7 +605,7 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
               </button>
 
               {showFullComparison && (
-                <div className="mt-3 space-y-2 pt-2 border-t border-orange/20">
+                <div className="mt-3 space-y-2 pt-2 border-t border-orange/20 dark:border-white/10">
                   {simulation.results.map((item, idx) => {
                     const isSelected = item.bank.id === selectedBank.id;
                     const isBest = idx === 0;
@@ -552,12 +615,12 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                         onClick={() => setSelectedBankId(item.bank.id)}
                         className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer ${
                           isSelected
-                            ? 'bg-white shadow-sm border-blue-royal'
-                            : 'bg-white/60 hover:bg-white border-white/40'
+                            ? 'bg-white dark:bg-[#15234A] shadow-sm border-blue-royal'
+                            : 'bg-white/60 dark:bg-[#15234A]/60 hover:bg-white dark:hover:bg-[#15234A] border-white/40 dark:border-white/10'
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <span className="text-xs font-bold w-5 text-blue-deep/70">
+                          <span className="text-xs font-bold w-5 text-blue-deep/70 dark:text-cream/70">
                             #{idx + 1}
                           </span>
                           <div
@@ -567,24 +630,25 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                             {item.bank.shortName.slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <span className="font-bold text-xs truncate block text-blue-deep">
+                            <span className="font-bold text-xs truncate block text-blue-deep dark:text-cream">
                               {item.bank.shortName}
                             </span>
-                            <span className="text-[11px] text-blue-deep/75">
+                            <span className="text-[11px] text-blue-deep/75 dark:text-cream/75">
                               {item.monthlyRatePercent.toFixed(2)}% a.m.
+                              {item.serviceFeePercent > 0 && ` (+${item.serviceFeePercent}% taxa)`}
                             </span>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className="font-bold text-xs text-blue-deep block">
+                          <span className="font-bold text-xs text-blue-deep dark:text-cream block">
                             {installments}x de {formatCentsToBRL(item.installmentAmountCents)}
                           </span>
-                          <span className="text-[10px] text-blue-deep/75 block">
-                            Total {formatCentsToBRL(item.finalTotalCents)}
+                          <span className="text-[10px] text-blue-deep/75 dark:text-cream/75 block">
+                            Total {formatCentsToBRL(item.finalTotalCents)} • CET {item.cetMonthlyPercent.toFixed(1)}% a.m.
                           </span>
                           {isBest && (
-                            <span className="text-[10px] font-extrabold text-green-ok block">
+                            <span className="text-[10px] font-extrabold text-green-ok dark:text-[#4ADE80] block">
                               ★ Mais barato
                             </span>
                           )}
