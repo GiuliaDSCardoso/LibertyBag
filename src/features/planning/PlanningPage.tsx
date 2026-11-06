@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { motion } from 'motion/react';
 import {
@@ -12,7 +13,9 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Sparkles,
-  Trash2
+  Trash2,
+  Calculator,
+  TrendingUp
 } from 'lucide-react';
 import { db, type SavingsGoalRecord, type TripItemRecord } from '../../db/dexie';
 import { useAppStore } from '../../app/store/useAppStore';
@@ -28,7 +31,10 @@ import { HelpButton } from '../../components/ui/HelpButton';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ModalShell } from '../../components/ui/ModalShell';
+import { CustomSelect } from '../../components/ui/CustomSelect';
 import { MatisseFlower } from '../../components/illustrations/BeachIllustrations';
+import { InstallmentSimulator } from '../simulation/InstallmentSimulator';
+import { InvestmentSimulator } from '../investments/InvestmentSimulator';
 import {
   TRIP_PARTS,
   calculateGoalMonthlyRecommendation,
@@ -43,11 +49,30 @@ import {
   updateTripItemWithUndo
 } from './planningService';
 
-type PlanningTab = 'cofrinhos' | 'orcamento' | 'viagens' | 'contas';
+type PlanningTab = 'cofrinhos' | 'orcamento' | 'viagens' | 'contas' | 'simulador' | 'investimentos';
 
 export const PlanningPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab') as PlanningTab | null;
+
   const { activeSpaceId, activeUserId, showUndoToast } = useAppStore();
-  const [activeTab, setActiveTab] = useState<PlanningTab>('cofrinhos');
+  const [activeTab, setActiveTabState] = useState<PlanningTab>(() => {
+    if (urlTab && ['cofrinhos', 'orcamento', 'viagens', 'contas', 'simulador', 'investimentos'].includes(urlTab)) {
+      return urlTab;
+    }
+    return 'cofrinhos';
+  });
+
+  const setActiveTab = (tab: PlanningTab) => {
+    setActiveTabState(tab);
+    setSearchParams({ tab });
+  };
+
+  React.useEffect(() => {
+    if (urlTab && ['cofrinhos', 'orcamento', 'viagens', 'contas', 'simulador', 'investimentos'].includes(urlTab)) {
+      setActiveTabState(urlTab);
+    }
+  }, [urlTab]);
 
   const now = useMemo(() => new Date(), []);
   const currentMonthKey = getMonthKey(now);
@@ -433,7 +458,7 @@ export const PlanningPage: React.FC = () => {
   }, [monthBudgets]);
 
   return (
-    <div className="space-y-6 pb-8" data-tutorial="planning-view">
+    <div className="space-y-8 pb-12" data-tutorial="planning-view">
       {/* Cabeçalho */}
       <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
         <div className="min-w-0 flex-1 pr-2">
@@ -452,9 +477,9 @@ export const PlanningPage: React.FC = () => {
         />
       </header>
 
-      {/* Navegação das 4 partes do Planejar */}
+      {/* Navegação das 6 seções do Planejar */}
       <div
-        className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white dark:bg-[#192B85] p-2 rounded-card border border-blue-sky/60 shadow-card"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 bg-white dark:bg-[#152144] p-2 rounded-card border-2 border-blue-sky/70 dark:border-white/10 shadow-card"
         role="tablist"
         aria-label="Seções de planejamento"
       >
@@ -463,7 +488,9 @@ export const PlanningPage: React.FC = () => {
             { id: 'cofrinhos', label: 'Cofrinhos', icon: PiggyBank },
             { id: 'orcamento', label: 'Quanto gastar', icon: Wallet },
             { id: 'viagens', label: 'Viagens', icon: Plane },
-            { id: 'contas', label: 'Contas a pagar', icon: CalendarCheck }
+            { id: 'contas', label: 'Contas a pagar', icon: CalendarCheck },
+            { id: 'simulador', label: 'Simular Parcelas', icon: Calculator },
+            { id: 'investimentos', label: 'Investimentos', icon: TrendingUp }
           ] as const
         ).map(({ id, label, icon: Icon }) => (
           <button
@@ -472,10 +499,10 @@ export const PlanningPage: React.FC = () => {
             role="tab"
             aria-selected={activeTab === id}
             onClick={() => setActiveTab(id)}
-            className={`min-h-[52px] px-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-all ${
+            className={`min-h-[50px] px-2.5 sm:px-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap transition-all ${
               activeTab === id
-                ? 'bg-blue-royal text-white shadow-xs'
-                : 'text-blue-deep dark:text-cream hover:bg-blue-sky/40'
+                ? 'bg-blue-royal text-white shadow-soft'
+                : 'text-blue-deep dark:text-cream hover:bg-blue-sky/40 dark:hover:bg-blue-royal/30'
             }`}
           >
             <Icon size={18} className="shrink-0" />
@@ -861,7 +888,7 @@ export const PlanningPage: React.FC = () => {
                                 setTripItemPlannedInput(String(item.plannedCents / 100));
                                 setTripItemSpentInput(String(item.spentCents / 100));
                               }}
-                              className="min-h-[40px] px-3 rounded-pill bg-white dark:bg-[#192B85] text-blue-royal dark:text-sun text-xs font-bold border border-blue-sky"
+                              className="min-h-[40px] px-3 rounded-pill bg-white dark:bg-[#152144] text-blue-royal dark:text-sun text-xs font-bold border border-blue-sky"
                             >
                               Ajustar valores
                             </button>
@@ -938,8 +965,22 @@ export const PlanningPage: React.FC = () => {
       )}
 
       {/* =====================================================================
-          MODAIS ENQUADRADOS COM MODALSHELL
+          ABA 5: SIMULADOR DE PARCELAMENTO (PIX E CARTÃO DE CRÉDITO)
          ===================================================================== */}
+      {activeTab === 'simulador' && (
+        <section aria-label="Simulador de parcelamento">
+          <InstallmentSimulator />
+        </section>
+      )}
+
+      {/* =====================================================================
+          ABA 6: SIMULADOR DE INVESTIMENTOS & METAS (FASE 4)
+         ===================================================================== */}
+      {activeTab === 'investimentos' && (
+        <section aria-label="Simulador de investimentos e metas">
+          <InvestmentSimulator />
+        </section>
+      )}
 
       {/* 1. Modal Criar Novo Cofrinho */}
       <ModalShell
@@ -976,7 +1017,7 @@ export const PlanningPage: React.FC = () => {
               value={goalName}
               onChange={(e) => setGoalName(e.target.value)}
               placeholder="Ex.: Viagem para a praia, Reserva de paz..."
-              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 border-blue-sky font-semibold"
+              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 border-blue-sky font-semibold"
             />
           </div>
 
@@ -992,7 +1033,7 @@ export const PlanningPage: React.FC = () => {
                 value={goalTargetInput}
                 onChange={(e) => setGoalTargetInput(e.target.value)}
                 placeholder="Ex.: 1200"
-                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 border-blue-sky font-bold text-lg"
+                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 border-blue-sky font-bold text-lg"
               />
             </div>
 
@@ -1007,7 +1048,7 @@ export const PlanningPage: React.FC = () => {
                 value={goalInitialInput}
                 onChange={(e) => setGoalInitialInput(e.target.value)}
                 placeholder="Ex.: 200"
-                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-semibold"
               />
             </div>
           </div>
@@ -1021,7 +1062,7 @@ export const PlanningPage: React.FC = () => {
               type="date"
               value={goalDeadline}
               onChange={(e) => setGoalDeadline(e.target.value)}
-              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/20 font-extrabold shadow-sm dark:[color-scheme:dark]"
             />
           </div>
 
@@ -1079,7 +1120,7 @@ export const PlanningPage: React.FC = () => {
             value={movementAmountInput}
             onChange={(e) => setMovementAmountInput(e.target.value)}
             placeholder="Ex.: 150"
-            className="w-full min-h-[54px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 border-blue-royal font-extrabold text-2xl tabular-nums"
+            className="w-full min-h-[54px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 border-blue-royal font-extrabold text-2xl tabular-nums"
           />
         </div>
       </ModalShell>
@@ -1119,7 +1160,7 @@ export const PlanningPage: React.FC = () => {
             value={budgetModalValue}
             onChange={(e) => setBudgetModalValue(e.target.value)}
             placeholder="Ex.: 600"
-            className="w-full min-h-[54px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 border-blue-royal font-extrabold text-2xl tabular-nums"
+            className="w-full min-h-[54px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 border-blue-royal font-extrabold text-2xl tabular-nums"
           />
         </div>
       </ModalShell>
@@ -1160,7 +1201,7 @@ export const PlanningPage: React.FC = () => {
                 value={tripName}
                 onChange={(e) => setTripName(e.target.value)}
                 placeholder="Ex.: Férias de Janeiro"
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-semibold"
               />
             </div>
             <div>
@@ -1173,7 +1214,7 @@ export const PlanningPage: React.FC = () => {
                 value={tripDest}
                 onChange={(e) => setTripDest(e.target.value)}
                 placeholder="Ex.: Maceió"
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-semibold"
               />
             </div>
           </div>
@@ -1188,7 +1229,7 @@ export const PlanningPage: React.FC = () => {
                 type="date"
                 value={tripStart}
                 onChange={(e) => setTripStart(e.target.value)}
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky"
+                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/20 font-extrabold shadow-sm dark:[color-scheme:dark]"
               />
             </div>
             <div>
@@ -1200,7 +1241,7 @@ export const PlanningPage: React.FC = () => {
                 type="date"
                 value={tripEnd}
                 onChange={(e) => setTripEnd(e.target.value)}
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky"
+                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/20 font-extrabold shadow-sm dark:[color-scheme:dark]"
               />
             </div>
           </div>
@@ -1210,19 +1251,19 @@ export const PlanningPage: React.FC = () => {
               <label htmlFor="trip-goal" className="block font-bold text-sm mb-1">
                 Ligar a um Cofrinho (opcional)
               </label>
-              <select
+              <CustomSelect
                 id="trip-goal"
                 value={tripGoalId}
-                onChange={(e) => setTripGoalId(e.target.value)}
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
-              >
-                <option value="">Sem cofrinho vinculado</option>
-                {goals.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} ({formatCentsToBRL(g.savedCents)})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setTripGoalId(val)}
+                placeholder="Sem cofrinho vinculado"
+                options={[
+                  { value: '', label: 'Sem cofrinho vinculado' },
+                  ...goals.map((g) => ({
+                    value: g.id,
+                    label: `${g.name} (${formatCentsToBRL(g.savedCents)})`
+                  }))
+                ]}
+              />
             </div>
           )}
 
@@ -1242,7 +1283,7 @@ export const PlanningPage: React.FC = () => {
                       setTripPartsInput((prev) => ({ ...prev, [part]: e.target.value }))
                     }
                     placeholder="0,00"
-                    className="w-full min-h-[46px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+                    className="w-full min-h-[46px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-semibold"
                   />
                 </div>
               ))}
@@ -1277,7 +1318,7 @@ export const PlanningPage: React.FC = () => {
               inputMode="decimal"
               value={tripItemPlannedInput}
               onChange={(e) => setTripItemPlannedInput(e.target.value)}
-              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-bold"
+              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold"
             />
           </div>
           <div>
@@ -1287,7 +1328,7 @@ export const PlanningPage: React.FC = () => {
               inputMode="decimal"
               value={tripItemSpentInput}
               onChange={(e) => setTripItemSpentInput(e.target.value)}
-              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-bold"
+              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold"
             />
           </div>
         </div>
@@ -1328,7 +1369,7 @@ export const PlanningPage: React.FC = () => {
               value={billTitle}
               onChange={(e) => setBillTitle(e.target.value)}
               placeholder="Ex.: Conta de Luz, Internet, Condomínio..."
-              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-semibold"
             />
           </div>
 
@@ -1344,7 +1385,7 @@ export const PlanningPage: React.FC = () => {
                 value={billAmountInput}
                 onChange={(e) => setBillAmountInput(e.target.value)}
                 placeholder="Ex.: 180"
-                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-bold"
+                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold"
               />
             </div>
 
@@ -1357,7 +1398,7 @@ export const PlanningPage: React.FC = () => {
                 type="date"
                 value={billDate}
                 onChange={(e) => setBillDate(e.target.value)}
-                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+                className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/20 font-extrabold shadow-sm dark:[color-scheme:dark]"
               />
             </div>
           </div>
@@ -1366,18 +1407,16 @@ export const PlanningPage: React.FC = () => {
             <label htmlFor="bill-cat" className="block font-bold text-sm mb-1">
               Categoria
             </label>
-            <select
+            <CustomSelect
               id="bill-cat"
               value={billCategoryId}
-              onChange={(e) => setBillCategoryId(e.target.value)}
-              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBillCategoryId(val)}
+              options={categories.map((c) => ({
+                value: c.id,
+                label: c.name,
+                color: c.color
+              }))}
+            />
           </div>
         </div>
       </ModalShell>

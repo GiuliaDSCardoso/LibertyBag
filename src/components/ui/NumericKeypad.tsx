@@ -34,7 +34,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
       <button
         type="button"
         onClick={onClear}
-        className="min-h-[56px] rounded-2xl bg-blue-sky/45 dark:bg-[#192B85] hover:bg-blue-sky text-blue-deep dark:text-cream font-bold text-sm shadow-card border border-blue-sky/50 transition-all"
+        className="min-h-[56px] rounded-2xl bg-blue-sky/45 dark:bg-[#152144] hover:bg-blue-sky text-blue-deep dark:text-cream font-bold text-sm shadow-card border border-blue-sky/50 transition-all"
       >
         Limpar
       </button>
@@ -51,7 +51,7 @@ export const NumericKeypad: React.FC<NumericKeypadProps> = ({
         type="button"
         onClick={onBackspace}
         aria-label="Apagar último número"
-        className="min-h-[56px] rounded-2xl bg-blue-sky/45 dark:bg-[#192B85] hover:bg-blue-sky text-blue-deep dark:text-cream font-bold flex items-center justify-center shadow-card border border-blue-sky/50 transition-all"
+        className="min-h-[56px] rounded-2xl bg-blue-sky/45 dark:bg-[#152144] hover:bg-blue-sky text-blue-deep dark:text-cream font-bold flex items-center justify-center shadow-card border border-blue-sky/50 transition-all"
       >
         <Delete size={24} />
       </button>

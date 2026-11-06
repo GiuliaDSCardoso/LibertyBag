@@ -10,7 +10,8 @@ import {
   Lightbulb,
   HelpCircle,
   Plus,
-  Sparkles
+  Sparkles,
+  Calendar
 } from 'lucide-react';
 import {
   PieChart,
@@ -266,14 +267,24 @@ export const AnalyticsPage: React.FC = () => {
             <Card variant="white" className="space-y-3">
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-12 h-12 rounded-2xl text-white flex items-center justify-center shrink-0 ${
-                    diffSaiu <= 0 ? 'bg-green-ok' : 'bg-orange-accent'
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                    prevTotals.saiu === 0
+                      ? 'bg-blue-sky/70 dark:bg-blue-royal/40 text-blue-royal dark:text-sun'
+                      : diffSaiu <= 0
+                      ? 'bg-green-ok text-white'
+                      : 'bg-orange text-white'
                   }`}
                 >
-                  {diffSaiu <= 0 ? <TrendingDown size={24} /> : <TrendingUp size={24} />}
+                  {prevTotals.saiu === 0 ? (
+                    <Calendar size={24} />
+                  ) : diffSaiu <= 0 ? (
+                    <TrendingDown size={24} />
+                  ) : (
+                    <TrendingUp size={24} />
+                  )}
                 </div>
                 <div>
-                  <h2 className="title-section">Comparação com o mês passado</h2>
+                  <h2 className="title-section text-blue-deep dark:text-cream">Comparação com o mês passado</h2>
                   <p className="text-xs font-semibold text-blue-deep/75 dark:text-cream/75">
                     Comparado a {formatMonthYear(prevMonthDate)}
                   </p>
@@ -281,19 +292,19 @@ export const AnalyticsPage: React.FC = () => {
               </div>
 
               {prevTotals.saiu === 0 ? (
-                <p className="text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed pt-1">
+                <p className="text-sm text-blue-deep/85 dark:text-cream/90 leading-relaxed pt-1">
                   Em {formatMonthYear(prevMonthDate)} não havia gastos anotados. No próximo mês,
                   mostraremos aqui se você gastou mais ou menos que agora!
                 </p>
               ) : diffSaiu === 0 ? (
-                <p className="text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed pt-1">
+                <p className="text-sm text-blue-deep/85 dark:text-cream/90 leading-relaxed pt-1">
                   Você gastou exatamente o mesmo valor que no mês passado (
-                  <strong>{formatCentsToBRL(currentTotals.saiu)}</strong>).
+                  <strong className="text-blue-deep dark:text-white">{formatCentsToBRL(currentTotals.saiu)}</strong>).
                 </p>
               ) : diffSaiu < 0 ? (
                 <p className="text-base text-blue-deep dark:text-cream leading-relaxed pt-1">
                   Boa notícia! Até agora você gastou{' '}
-                  <strong className="text-green-ok">
+                  <strong className="text-green-ok dark:text-[#4ADE80]">
                     {formatCentsToBRL(Math.abs(diffSaiu))} a menos
                   </strong>{' '}
                   do que no mês passado ({formatCentsToBRL(prevTotals.saiu)}).
@@ -301,7 +312,7 @@ export const AnalyticsPage: React.FC = () => {
               ) : (
                 <p className="text-base text-blue-deep dark:text-cream leading-relaxed pt-1">
                   Neste mês você gastou{' '}
-                  <strong className="text-red-soft">
+                  <strong className="text-red-soft dark:text-[#F87171]">
                     {formatCentsToBRL(diffSaiu)} a mais
                   </strong>{' '}
                   do que no mês passado ({formatCentsToBRL(prevTotals.saiu)}).
@@ -313,14 +324,14 @@ export const AnalyticsPage: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center gap-2 px-1">
                 <Lightbulb size={20} className="text-blue-royal dark:text-sun shrink-0" />
-                <h2 className="title-section">Dicas gentis para você</h2>
+                <h2 className="title-section text-blue-royal dark:text-sun">Dicas gentis para você</h2>
               </div>
 
               {suggestions.length === 0 ? (
                 <Card variant="sky">
                   <div className="flex items-center gap-3">
                     <Sparkles size={22} className="text-blue-royal dark:text-sun shrink-0" />
-                    <p className="text-sm">
+                    <p className="text-sm text-blue-deep dark:text-cream">
                       Continue anotando seus lançamentos para receber dicas personalizadas do mês.
                     </p>
                   </div>
@@ -337,7 +348,7 @@ export const AnalyticsPage: React.FC = () => {
                       <h3
                         className={`font-serif font-bold text-lg ${
                           sug.type === 'positive'
-                            ? 'text-blue-deep'
+                            ? 'text-blue-deep dark:text-white'
                             : 'text-blue-royal dark:text-sun'
                         }`}
                       >
@@ -346,8 +357,8 @@ export const AnalyticsPage: React.FC = () => {
                       <p
                         className={`text-sm leading-relaxed ${
                           sug.type === 'positive'
-                            ? 'text-blue-deep/90'
-                            : 'text-blue-deep/85 dark:text-cream/85'
+                            ? 'text-blue-deep/90 dark:text-cream'
+                            : 'text-blue-deep/85 dark:text-cream/90'
                         }`}
                       >
                         {sug.message}
@@ -357,11 +368,7 @@ export const AnalyticsPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => toggleWhy(sug.id)}
-                          className={`inline-flex items-center gap-1.5 text-xs font-bold underline underline-offset-4 min-h-[36px] ${
-                            sug.type === 'positive'
-                              ? 'text-blue-deep'
-                              : 'text-blue-royal dark:text-sun'
-                          }`}
+                          className="inline-flex items-center gap-1.5 text-xs font-bold underline underline-offset-4 min-h-[36px] text-blue-royal dark:text-sun hover:opacity-80 transition-opacity cursor-pointer"
                         >
                           <HelpCircle size={15} />
                           <span>
@@ -375,11 +382,11 @@ export const AnalyticsPage: React.FC = () => {
                           <div
                             className={`mt-2 p-3 rounded-xl text-xs leading-relaxed ${
                               sug.type === 'positive'
-                                ? 'bg-white/75 text-blue-deep'
-                                : 'bg-cream dark:bg-blue-deep text-blue-deep/90 dark:text-cream/90'
+                                ? 'bg-white/80 dark:bg-[#15234A] text-blue-deep dark:text-cream border border-orange/30 dark:border-sun/20'
+                                : 'bg-cream dark:bg-blue-deep text-blue-deep/90 dark:text-cream/90 border border-blue-sky/40 dark:border-white/10'
                             }`}
                           >
-                            <strong>Conta feita pelo app:</strong> {sug.whyExplanation}
+                            <strong className="text-blue-deep dark:text-white">Conta feita pelo app:</strong> {sug.whyExplanation}
                           </div>
                         )}
                       </div>

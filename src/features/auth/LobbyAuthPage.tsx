@@ -18,7 +18,8 @@ import {
   Heart,
   PiggyBank,
   Zap,
-  AlertCircle
+  AlertCircle,
+  Lightbulb
 } from 'lucide-react';
 import { useAppStore } from '../../app/store/useAppStore';
 import {
@@ -110,6 +111,8 @@ export const LobbyAuthPage: React.FC = () => {
           loginUser({
             name: res.name || urlEmail.split('@')[0],
             email: urlEmail,
+            userId: res.userId,
+            spaceId: res.spaceId,
             isFirstLogin: verifyPurpose === 'signup'
           });
           showUndoToast('E-mail confirmado pelo link! Bem-vindo(a)!', async () => {});
@@ -148,6 +151,8 @@ export const LobbyAuthPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       let needsDeviceVerification = true;
+      let signedUserId: string | undefined;
+      let signedSpaceId: string | undefined;
 
       if (step === 'signup') {
         const reg = await registerUserAccount({
@@ -163,6 +168,8 @@ export const LobbyAuthPage: React.FC = () => {
           });
           return;
         }
+        signedUserId = reg.userId;
+        signedSpaceId = reg.spaceId;
         needsDeviceVerification = true;
       } else {
         // LOGIN: só prossegue se a conta existir no banco e a senha estiver certa!
@@ -178,6 +185,8 @@ export const LobbyAuthPage: React.FC = () => {
           });
           return;
         }
+        signedUserId = sign.userId;
+        signedSpaceId = sign.spaceId;
         if (sign.name) {
           userDisplayName = sign.name;
           if (!name) setName(sign.name);
@@ -202,6 +211,8 @@ export const LobbyAuthPage: React.FC = () => {
         loginUser({
           name: userDisplayName,
           email: cleanEmail,
+          userId: signedUserId,
+          spaceId: signedSpaceId,
           isFirstLogin: false
         });
         showUndoToast(`Bem-vindo(a), ${userDisplayName}!`, async () => {});
@@ -224,12 +235,12 @@ export const LobbyAuthPage: React.FC = () => {
       if (emailRes.emailSent) {
         setFeedbackMsg({
           type: 'info',
-          text: `Enviamos um e-mail HTML com o código de 6 dígitos e botão de confirmação para ${cleanEmail}! Confira sua caixa de entrada (e a pasta Spam).`
+          text: `Enviamos o código de 6 dígitos para ${cleanEmail}! Confira sua caixa de entrada e a pasta de Spam.`
         });
       } else {
         setFeedbackMsg({
           type: 'error',
-          text: `Não foi possível enviar o e-mail no momento (${emailRes.errorDetail || 'erro de conexão'}). Tente reenviar abaixo.`
+          text: `Não foi possível enviar o e-mail no momento. Verifique sua conexão e toque em "Reenviar código" abaixo.`
         });
       }
     } finally {
@@ -347,6 +358,8 @@ export const LobbyAuthPage: React.FC = () => {
       loginUser({
         name: finalName,
         email: email.trim().toLowerCase(),
+        userId: res.userId,
+        spaceId: res.spaceId,
         isFirstLogin: verifyPurpose === 'signup'
       });
       showUndoToast(`Bem-vindo(a), ${finalName}!`, async () => {});
@@ -407,7 +420,7 @@ export const LobbyAuthPage: React.FC = () => {
             type="button"
             onClick={() => setTheme(theme === 'noite' ? 'praia' : 'noite')}
             aria-label="Alternar tema claro ou escuro"
-            className="min-h-[48px] px-4 rounded-pill bg-white dark:bg-[#192B85] border border-blue-sky/80 font-bold text-xs sm:text-sm inline-flex items-center gap-2 shadow-card"
+            className="min-h-[48px] px-4 rounded-pill bg-white dark:bg-[#152144] border border-blue-sky/80 font-bold text-xs sm:text-sm inline-flex items-center gap-2 shadow-card"
           >
             {theme === 'noite' ? <Sun size={18} className="text-sun" /> : <Moon size={18} />}
             <span className="hidden sm:inline">
@@ -457,7 +470,7 @@ export const LobbyAuthPage: React.FC = () => {
 
                     {/* Ilustrações fofas alinhadas */}
                     <div className="flex items-center gap-4 pt-1">
-                      <div className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky/70 flex items-center gap-3 shadow-xs">
+                      <div className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky/70 flex items-center gap-3 shadow-xs">
                         <SunIllustration size={40} />
                         <div className="text-xs">
                           <strong className="block text-sm text-blue-royal dark:text-sun">
@@ -467,7 +480,7 @@ export const LobbyAuthPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky/70 flex items-center gap-3 shadow-xs">
+                      <div className="px-4 py-2.5 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky/70 flex items-center gap-3 shadow-xs">
                         <WaveIllustration size={40} />
                         <div className="text-xs">
                           <strong className="block text-sm text-blue-royal dark:text-sun">
@@ -612,12 +625,22 @@ export const LobbyAuthPage: React.FC = () => {
                       className={`p-3.5 rounded-2xl text-sm font-bold border ${
                         feedbackMsg.type === 'error'
                           ? 'bg-red-soft/15 text-red-soft border-red-soft/40'
-                          : 'bg-blue-sky/55 dark:bg-[#192B85] text-blue-deep dark:text-cream border-blue-royal/30'
+                          : 'bg-blue-sky/55 dark:bg-[#152144] text-blue-deep dark:text-cream border-blue-royal/30'
                       }`}
                     >
                       {feedbackMsg.text}
                     </div>
                   )}
+
+                  <div className="p-3.5 rounded-2xl bg-sun/15 border border-sun/40 text-blue-deep dark:text-cream text-xs sm:text-sm space-y-1 text-left">
+                    <p className="font-bold flex items-center gap-1.5 text-blue-royal dark:text-sun">
+                      <Lightbulb size={16} className="text-orange shrink-0" />
+                      Não encontrou? Confira a pasta Spam ou Lixo Eletrônico
+                    </p>
+                    <p className="text-xs opacity-90 leading-relaxed">
+                      Como é o primeiro e-mail que o LibertyBag te envia, o Gmail ou Outlook pode filtrá-lo. Basta abrir a pasta de Spam e marcar como &ldquo;Não é spam&rdquo;.
+                    </p>
+                  </div>
 
                   <div>
                     <label
@@ -641,7 +664,7 @@ export const LobbyAuthPage: React.FC = () => {
                       }}
                       placeholder="000000"
                       aria-invalid={Boolean(fieldErrors.code)}
-                      className={`w-full min-h-[64px] px-4 rounded-2xl bg-white dark:bg-[#192B85] border-2 text-center font-sans font-extrabold text-3xl tracking-[0.35em] tabular-nums ${
+                      className={`w-full min-h-[64px] px-4 rounded-2xl bg-white dark:bg-[#152144] border-2 text-center font-sans font-extrabold text-3xl tracking-[0.35em] tabular-nums ${
                         fieldErrors.code ? 'border-red-soft' : 'border-blue-royal'
                       }`}
                     />
@@ -673,7 +696,7 @@ export const LobbyAuthPage: React.FC = () => {
                         }}
                         placeholder="Mínimo de 8 caracteres (letras e números)"
                         aria-invalid={Boolean(fieldErrors.newPasswordReset)}
-                        className={`w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#192B85] border-2 font-bold ${
+                        className={`w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#152144] border-2 font-bold ${
                           fieldErrors.newPasswordReset ? 'border-red-soft' : 'border-blue-sky'
                         }`}
                       />
@@ -740,7 +763,7 @@ export const LobbyAuthPage: React.FC = () => {
 
                   {/* Seletor de Abas: Entrar vs. Criar Conta */}
                   {step !== 'forgot' && (
-                    <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky">
+                    <div className="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky">
                       <button
                         type="button"
                         onClick={() => {
@@ -834,7 +857,7 @@ export const LobbyAuthPage: React.FC = () => {
                           }}
                           placeholder="Ex.: Dona Maria, Giulia..."
                           aria-invalid={Boolean(fieldErrors.name)}
-                          className={`w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#192B85] border-2 font-bold ${
+                          className={`w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#152144] border-2 font-bold ${
                             fieldErrors.name ? 'border-red-soft' : 'border-blue-sky'
                           }`}
                         />
@@ -868,7 +891,7 @@ export const LobbyAuthPage: React.FC = () => {
                         }}
                         placeholder="Ex.: maria@gmail.com"
                         aria-invalid={Boolean(fieldErrors.email)}
-                        className={`w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#192B85] border-2 font-bold ${
+                        className={`w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#152144] border-2 font-bold ${
                           fieldErrors.email ? 'border-red-soft' : 'border-blue-sky'
                         }`}
                       />
@@ -923,7 +946,7 @@ export const LobbyAuthPage: React.FC = () => {
                                 : 'Digite sua senha'
                             }
                             aria-invalid={Boolean(fieldErrors.password)}
-                            className={`w-full min-h-[52px] pl-4 pr-14 rounded-2xl bg-white dark:bg-[#192B85] border-2 font-bold ${
+                            className={`w-full min-h-[52px] pl-4 pr-14 rounded-2xl bg-white dark:bg-[#152144] border-2 font-bold ${
                               fieldErrors.password ? 'border-red-soft' : 'border-blue-sky'
                             }`}
                           />
@@ -950,7 +973,7 @@ export const LobbyAuthPage: React.FC = () => {
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        className="p-4 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky space-y-3"
+                        className="p-4 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky space-y-3"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs font-extrabold uppercase tracking-wider text-blue-deep/80 dark:text-cream/80">

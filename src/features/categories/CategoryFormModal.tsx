@@ -148,7 +148,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Prévia ao vivo sempre visível e bem enquadrada */}
-        <div className="bg-white dark:bg-[#192B85] rounded-2xl p-4 border border-blue-sky/70 dark:border-blue-sky/25 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-white dark:bg-[#152144] rounded-2xl p-4 border border-blue-sky/70 dark:border-blue-sky/25 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs transition-colors"
@@ -191,7 +191,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 setErrorMsg(null);
               }}
               placeholder="Ex.: Farmácia, Feira..."
-              className="w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#192B85] border-2 border-blue-sky focus:border-blue-royal text-base font-semibold"
+              className="w-full min-h-[52px] px-4 rounded-2xl bg-white dark:bg-[#152144] border-2 border-blue-sky focus:border-blue-royal text-base font-semibold"
             />
           </div>
 
@@ -207,7 +207,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 className={`min-h-[52px] px-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-1.5 border-2 transition-all ${
                   type === 'saida'
                     ? 'bg-red-soft text-white border-red-soft shadow-xs'
-                    : 'bg-white dark:bg-[#192B85] border-blue-sky/70'
+                    : 'bg-white dark:bg-[#152144] border-blue-sky/70'
                 }`}
               >
                 <ArrowDownCircle size={18} className="shrink-0" />
@@ -221,7 +221,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                 className={`min-h-[52px] px-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-1.5 border-2 transition-all ${
                   type === 'entrada'
                     ? 'bg-green-ok text-white border-green-ok shadow-xs'
-                    : 'bg-white dark:bg-[#192B85] border-blue-sky/70'
+                    : 'bg-white dark:bg-[#152144] border-blue-sky/70'
                 }`}
               >
                 <ArrowUpCircle size={18} className="shrink-0" />
@@ -298,7 +298,7 @@ export const CategoryFormModal: React.FC<CategoryFormModalProps> = ({
                   className={`min-h-[46px] rounded-2xl flex items-center justify-center border-2 transition-all ${
                     selected
                       ? 'bg-blue-royal text-white border-blue-royal shadow-xs'
-                      : 'bg-white dark:bg-[#192B85] border-blue-sky/60 hover:border-blue-royal'
+                      : 'bg-white dark:bg-[#152144] border-blue-sky/60 hover:border-blue-royal'
                   }`}
                 >
                   <CategoryIcon name={iconName} size={20} />

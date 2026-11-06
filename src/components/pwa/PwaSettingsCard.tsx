@@ -92,7 +92,7 @@ export const PwaSettingsCard: React.FC = () => {
         }
       >
         <div className="space-y-3.5 text-blue-deep dark:text-cream text-sm">
-          <div className="p-3 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky/60 flex items-start gap-2.5">
+          <div className="p-3 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-start gap-2.5">
             <span className="w-6 h-6 rounded-full bg-blue-royal text-white flex items-center justify-center shrink-0 text-xs font-bold">1</span>
             <div>
               <p className="font-bold">Toque em Compartilhar no Safari</p>
@@ -102,7 +102,7 @@ export const PwaSettingsCard: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky/60 flex items-start gap-2.5">
+          <div className="p-3 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-start gap-2.5">
             <span className="w-6 h-6 rounded-full bg-blue-royal text-white flex items-center justify-center shrink-0 text-xs font-bold">2</span>
             <div>
               <p className="font-bold">Toque em "Adicionar à Tela de Início"</p>
@@ -112,7 +112,7 @@ export const PwaSettingsCard: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky/60 flex items-start gap-2.5">
+          <div className="p-3 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-start gap-2.5">
             <span className="w-6 h-6 rounded-full bg-blue-royal text-white flex items-center justify-center shrink-0 text-xs font-bold">3</span>
             <div>
               <p className="font-bold">Toque em "Adicionar"</p>

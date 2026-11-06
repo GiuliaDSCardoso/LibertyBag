@@ -27,6 +27,7 @@ import { HelpButton } from '../../components/ui/HelpButton';
 import { Button } from '../../components/ui/Button';
 import { ModalShell } from '../../components/ui/ModalShell';
 import { CategoryFormModal } from '../categories/CategoryFormModal';
+import { InstallmentSimulator } from '../simulation/InstallmentSimulator';
 import {
   calculateInstallmentPlan,
   createTransactionWithUndo,
@@ -73,6 +74,7 @@ export const AddTransactionModal: React.FC = () => {
   // Estado para abrir o criador de categoria sem perder o valor digitado
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
   const [newlyCreatedCategory, setNewlyCreatedCategory] = useState<CategoryRecord | null>(null);
+  const [simulationModalOpen, setSimulationModalOpen] = useState(false);
 
   const categories = useLiveQuery(
     async () => {
@@ -319,7 +321,7 @@ export const AddTransactionModal: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Coluna Esquerda: Passo 1 (Visor + Teclado) */}
           <div className="lg:col-span-5 space-y-3.5">
-            <div className="bg-white dark:bg-[#192B85] rounded-2xl p-4 border-2 border-blue-royal/30 shadow-card text-center">
+            <div className="bg-white dark:bg-[#152144] rounded-2xl p-4 border-2 border-blue-royal/30 shadow-card text-center">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-deep/80 dark:text-cream/85 block mb-1">
                 1º Passo — Qual é o valor total?
               </span>
@@ -360,7 +362,7 @@ export const AddTransactionModal: React.FC = () => {
                   className={`min-h-[56px] rounded-2xl px-4 py-2.5 font-bold text-base flex items-center justify-center gap-2.5 border-2 transition-all ${
                     type === 'saida'
                       ? 'bg-red-soft text-white border-red-soft shadow-soft'
-                      : 'bg-white dark:bg-[#192B85] text-blue-deep dark:text-cream border-blue-sky/70'
+                      : 'bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-blue-sky/70'
                   }`}
                 >
                   <ArrowDownCircle size={22} aria-hidden="true" className="shrink-0" />
@@ -380,7 +382,7 @@ export const AddTransactionModal: React.FC = () => {
                   className={`min-h-[56px] rounded-2xl px-4 py-2.5 font-bold text-base flex items-center justify-center gap-2.5 border-2 transition-all ${
                     type === 'entrada'
                       ? 'bg-green-ok text-white border-green-ok shadow-soft'
-                      : 'bg-white dark:bg-[#192B85] text-blue-deep dark:text-cream border-blue-sky/70'
+                      : 'bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-blue-sky/70'
                   }`}
                 >
                   <ArrowUpCircle size={22} aria-hidden="true" className="shrink-0" />
@@ -393,7 +395,7 @@ export const AddTransactionModal: React.FC = () => {
             </div>
 
             {/* Bloco Visível de Forma de Pagamento, Parcelamento (Crédito / Pix Parcelado / Entrada / Juros) e Repetição Mensal */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky/80 space-y-3.5 shadow-xs">
+            <div className="p-4 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky/80 space-y-3.5 shadow-xs">
               <div>
                 <span className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-blue-deep/80 dark:text-cream/80 mb-2">
                   <CreditCard size={16} />
@@ -482,6 +484,16 @@ export const AddTransactionModal: React.FC = () => {
               {/* PAINEL DE PARCELAMENTO COMPLETO (Quantidade de meses, Entrada, Juros) */}
               {type === 'saida' && isInstallment && (
                 <div className="pt-3 border-t border-blue-sky/50 space-y-4">
+                  {/* Botão de Simulação Inteligente de Bancos */}
+                  <button
+                    type="button"
+                    onClick={() => setSimulationModalOpen(true)}
+                    className="w-full min-h-[46px] px-4 rounded-2xl bg-blue-sky/40 dark:bg-white/10 hover:bg-blue-sky/60 dark:hover:bg-white/20 border border-blue-sky/80 dark:border-white/20 text-xs font-bold text-blue-royal-ink dark:text-sun flex items-center justify-center gap-2 transition-all shadow-xs"
+                  >
+                    <Calculator size={16} />
+                    <span>Simular e comparar juros dos bancos (Nubank, Itaú, Inter...)</span>
+                  </button>
+
                   {/* 1. Quantidade de meses / parcelas */}
                   <div>
                     <label
@@ -544,7 +556,7 @@ export const AddTransactionModal: React.FC = () => {
                           className={`min-h-[38px] px-3 rounded-lg text-xs font-bold border ${
                             !hasDownPayment
                               ? 'bg-blue-royal text-white border-blue-royal'
-                              : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                              : 'bg-white dark:bg-[#152144] border-blue-sky'
                           }`}
                         >
                           Não
@@ -555,7 +567,7 @@ export const AddTransactionModal: React.FC = () => {
                           className={`min-h-[38px] px-3 rounded-lg text-xs font-bold border ${
                             hasDownPayment
                               ? 'bg-blue-royal text-white border-blue-royal'
-                              : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                              : 'bg-white dark:bg-[#152144] border-blue-sky'
                           }`}
                         >
                           Sim, dei entrada
@@ -578,7 +590,7 @@ export const AddTransactionModal: React.FC = () => {
                           value={downPaymentInput}
                           onChange={(e) => setDownPaymentInput(e.target.value)}
                           placeholder="Ex.: 200,00"
-                          className="w-full min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-bold text-sm"
+                          className="w-full min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold text-sm"
                         />
                         {amountCents > downPaymentCents && downPaymentCents > 0 && (
                           <p className="text-xs text-blue-deep/85 dark:text-cream/85 mt-1 font-semibold">
@@ -602,7 +614,7 @@ export const AddTransactionModal: React.FC = () => {
                           className={`min-h-[38px] px-3 rounded-lg text-xs font-bold border ${
                             !hasInterest
                               ? 'bg-blue-royal text-white border-blue-royal'
-                              : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                              : 'bg-white dark:bg-[#152144] border-blue-sky'
                           }`}
                         >
                           Sem juros
@@ -613,7 +625,7 @@ export const AddTransactionModal: React.FC = () => {
                           className={`min-h-[38px] px-3 rounded-lg text-xs font-bold border ${
                             hasInterest
                               ? 'bg-orange text-blue-deep border-orange'
-                              : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                              : 'bg-white dark:bg-[#152144] border-blue-sky'
                           }`}
                         >
                           Com juros
@@ -630,7 +642,7 @@ export const AddTransactionModal: React.FC = () => {
                             className={`min-h-[40px] px-2.5 rounded-xl text-xs font-bold border ${
                               interestMode === 'installment_value'
                                 ? 'bg-blue-royal text-white border-blue-royal'
-                                : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                                : 'bg-white dark:bg-[#152144] border-blue-sky'
                             }`}
                           >
                             Informar valor da parcela
@@ -641,7 +653,7 @@ export const AddTransactionModal: React.FC = () => {
                             className={`min-h-[40px] px-2.5 rounded-xl text-xs font-bold border ${
                               interestMode === 'total_with_interest'
                                 ? 'bg-blue-royal text-white border-blue-royal'
-                                : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                                : 'bg-white dark:bg-[#152144] border-blue-sky'
                             }`}
                           >
                             Informar total com juros
@@ -663,7 +675,7 @@ export const AddTransactionModal: React.FC = () => {
                               value={customInstallmentInput}
                               onChange={(e) => setCustomInstallmentInput(e.target.value)}
                               placeholder="Ex.: 185,00"
-                              className="w-full min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-bold text-sm"
+                              className="w-full min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold text-sm"
                             />
                           </div>
                         ) : (
@@ -681,7 +693,7 @@ export const AddTransactionModal: React.FC = () => {
                               value={totalWithInterestInput}
                               onChange={(e) => setTotalWithInterestInput(e.target.value)}
                               placeholder="Ex.: 1200,00"
-                              className="w-full min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-bold text-sm"
+                              className="w-full min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold text-sm"
                             />
                           </div>
                         )}
@@ -768,7 +780,7 @@ export const AddTransactionModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowMoreDetails((v) => !v)}
-                className="w-full min-h-[46px] px-4 py-2 rounded-2xl bg-blue-sky/50 dark:bg-[#192B85] text-blue-deep dark:text-cream font-bold text-xs sm:text-sm flex items-center justify-between gap-2 border border-blue-royal/20"
+                className="w-full min-h-[46px] px-4 py-2 rounded-2xl bg-blue-sky/50 dark:bg-[#152144] text-blue-deep dark:text-cream font-bold text-xs sm:text-sm flex items-center justify-between gap-2 border border-blue-royal/20"
               >
                 <span className="truncate">
                   Data e observação (data:{' '}
@@ -779,7 +791,7 @@ export const AddTransactionModal: React.FC = () => {
               </button>
 
               {showMoreDetails && (
-                <div className="mt-2 p-4 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky space-y-4">
+                <div className="mt-2 p-4 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky space-y-4">
                   {/* Data com atalhos Hoje / Ontem */}
                   <div>
                     <label className="flex items-center gap-2 font-bold text-sm mb-2">
@@ -814,7 +826,7 @@ export const AddTransactionModal: React.FC = () => {
                         aria-label="Escolher outra data"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="min-h-[44px] px-3.5 rounded-xl bg-cream dark:bg-blue-deep border border-blue-sky text-sm font-bold"
+                        className="min-h-[44px] px-3.5 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/20 text-sm font-bold shadow-sm dark:[color-scheme:dark]"
                       />
                     </div>
                   </div>
@@ -861,7 +873,7 @@ export const AddTransactionModal: React.FC = () => {
                       className={`relative min-h-[74px] p-2 rounded-2xl transition-all border-2 flex flex-col items-center justify-center text-center gap-1.5 shadow-card ${
                         isSelected
                           ? 'bg-blue-royal text-white border-blue-royal ring-2 ring-sun scale-[1.02]'
-                          : 'bg-white dark:bg-[#192B85] hover:bg-blue-sky/50 border-blue-sky/60 hover:border-blue-royal'
+                          : 'bg-white dark:bg-[#152144] hover:bg-blue-sky/50 border-blue-sky/60 hover:border-blue-royal'
                       }`}
                     >
                       {isSelected && (
@@ -908,6 +920,37 @@ export const AddTransactionModal: React.FC = () => {
         onClose={() => setCreateCategoryOpen(false)}
         onSaved={handleNewCategoryCreated}
       />
+
+      {/* Modal de Simulação de Parcelamento */}
+      <ModalShell
+        open={simulationModalOpen}
+        onClose={() => setSimulationModalOpen(false)}
+        title="Simulador de Parcelamento"
+        subtitle="Compare taxas reais dos principais bancos brasileiros e evite juros abusivos."
+        maxWidthClass="max-w-4xl"
+      >
+        <InstallmentSimulator
+          initialAmountCents={amountCents > 0 ? amountCents : 100000}
+          initialType={paymentMethod === 'pix_parcelado' ? 'pix_parcelado' : 'credito'}
+          onApplyInstallmentPlan={(plan) => {
+            setInstallmentsCount(plan.installments);
+            setInstallmentsInput(String(plan.installments));
+            setHasInterest(true);
+            setInterestMode('total_with_interest');
+            setTotalWithInterestInput(
+              (plan.totalFinalCents / 100).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+              })
+            );
+            setSimulationModalOpen(false);
+            showUndoToast(
+              `Taxa do ${plan.bankName} (${plan.interestMonthlyPercent.toFixed(2)}% a.m.) aplicada!`,
+              async () => {}
+            );
+          }}
+        />
+      </ModalShell>
     </>
   );
 };

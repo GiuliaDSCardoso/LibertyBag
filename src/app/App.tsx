@@ -37,6 +37,8 @@ const AnimatedRoutes: React.FC = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/lancamentos" element={<TransactionsPage />} />
           <Route path="/planejar" element={<PlanningPage />} />
+          <Route path="/simulador" element={<Navigate to="/planejar?tab=simulador" replace />} />
+          <Route path="/investimentos" element={<Navigate to="/planejar?tab=investimentos" replace />} />
           <Route path="/analises" element={<AnalyticsPage />} />
           <Route path="/mais" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -59,6 +61,32 @@ export const App: React.FC = () => {
           sessionStorage.getItem('libertybag_logged_out_v1') === '1';
 
         if (!explicitlyLoggedOut) {
+          if (typeof window !== 'undefined') {
+            const rawSession = sessionStorage.getItem('libertybag_active_session_v1');
+            if (rawSession) {
+              try {
+                const parsed = JSON.parse(rawSession) as {
+                  name?: string;
+                  email?: string;
+                  userId?: string;
+                  spaceId?: string;
+                };
+                if (parsed.email) {
+                  loginUser({
+                    name: parsed.name || parsed.email.split('@')[0],
+                    email: parsed.email,
+                    userId: parsed.userId,
+                    spaceId: parsed.spaceId,
+                    isFirstLogin: false
+                  });
+                  return;
+                }
+              } catch {
+                // ignora
+              }
+            }
+          }
+
           const deviceUser = await getVerifiedDeviceUser();
           if (deviceUser.hasVerifiedUser && deviceUser.email) {
             loginUser({
@@ -67,24 +95,6 @@ export const App: React.FC = () => {
               isFirstLogin: false
             });
             return;
-          }
-
-          if (typeof window !== 'undefined') {
-            const rawSession = sessionStorage.getItem('libertybag_active_session_v1');
-            if (rawSession) {
-              try {
-                const parsed = JSON.parse(rawSession) as { name?: string; email?: string };
-                if (parsed.email) {
-                  loginUser({
-                    name: parsed.name || parsed.email.split('@')[0],
-                    email: parsed.email,
-                    isFirstLogin: false
-                  });
-                }
-              } catch {
-                // ignora
-              }
-            }
           }
         }
       })

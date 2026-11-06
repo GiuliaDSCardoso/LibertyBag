@@ -7,10 +7,16 @@ import {
   Sparkles,
   X,
   EyeOff,
-  Sun
+  Sun,
+  Calculator,
+  TrendingUp
 } from 'lucide-react';
 import { useAssistantStore } from './useAssistantStore';
 import { getContextualHelp } from './contextualHelp';
+import {
+  TUTORIAL_STEP_SIMULATION_INDEX,
+  TUTORIAL_STEP_INVESTMENTS_INDEX
+} from './tutorialSteps';
 import { LibertySunMascot } from '../../components/mascot/LibertySunMascot';
 
 export const MascotAssistant: React.FC = () => {
@@ -55,7 +61,11 @@ export const MascotAssistant: React.FC = () => {
     );
   }
 
-  const help = getContextualHelp(location.pathname);
+  const help = getContextualHelp(location.pathname, location.search);
+  const isSimulationTab =
+    location.search.includes('tab=simulador') || location.pathname.startsWith('/simulador');
+  const isInvestmentsTab =
+    location.search.includes('tab=investimentos') || location.pathname.startsWith('/investimentos');
 
   return (
     <div className="fixed bottom-20 md:bottom-6 right-2 sm:right-6 z-30 select-none pointer-events-none">
@@ -68,10 +78,10 @@ export const MascotAssistant: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-              className="mb-2 w-[calc(100vw-32px)] max-w-sm sm:max-w-md bg-white dark:bg-[#162573] border-2 border-sun rounded-card-lg p-4 sm:p-5 shadow-soft text-left relative"
+              className="mb-2 w-[calc(100vw-24px)] max-w-sm sm:max-w-md max-h-[75vh] overflow-y-auto bg-white dark:bg-[#152144] border-2 border-sun rounded-card-lg p-3.5 sm:p-5 shadow-soft text-left relative"
             >
               {/* Ponta do balão apontando para o mascote embaixo */}
-              <div className="absolute -bottom-2.5 right-12 w-4 h-4 bg-white dark:bg-[#162573] border-r-2 border-b-2 border-sun rotate-45" />
+              <div className="absolute -bottom-2.5 right-12 w-4 h-4 bg-white dark:bg-[#152144] border-r-2 border-b-2 border-sun rotate-45" />
 
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-pill bg-sun/20 text-blue-deep dark:text-sun text-xs font-bold">
@@ -96,6 +106,16 @@ export const MascotAssistant: React.FC = () => {
               <p className="text-xs sm:text-sm text-blue-deep/90 dark:text-cream/90 leading-relaxed mb-3">
                 Eu sou seu assistente do LibertyBag e estou aqui para ajudar você a organizar sua vida financeira com calma e sem complicação.
               </p>
+
+              <div className="p-2.5 rounded-xl bg-sun/15 border border-sun/30 space-y-1 mb-3 text-xs text-blue-deep dark:text-cream">
+                <p className="font-bold text-blue-royal dark:text-sun flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-orange shrink-0" />
+                  <span>Novidades no LibertyBag:</span>
+                </p>
+                <p className="text-[11px] leading-snug">
+                  Agora você tem o <strong>Simulador de Parcelas (Pix/Crédito)</strong> e a <strong>Simulação de Investimentos & Metas</strong>!
+                </p>
+              </div>
 
               <p className="text-xs sm:text-sm font-semibold text-blue-deep dark:text-white mb-4">
                 É sua primeira vez por aqui? Quer que eu mostre como tudo funciona?
@@ -131,10 +151,10 @@ export const MascotAssistant: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.95 }}
               transition={{ type: 'spring', stiffness: 350, damping: 25 }}
-              className="mb-2 w-[calc(100vw-32px)] max-w-sm sm:max-w-md bg-white dark:bg-[#162573] border-2 border-blue-royal/40 dark:border-sun/50 rounded-card-lg p-4 sm:p-5 shadow-soft text-left relative"
+              className="mb-2 w-[calc(100vw-24px)] max-w-sm sm:max-w-md max-h-[75vh] overflow-y-auto bg-white dark:bg-[#152144] border-2 border-blue-royal/40 dark:border-sun/50 rounded-card-lg p-3.5 sm:p-5 shadow-soft text-left relative"
             >
               {/* Ponta do balão apontando para o mascote embaixo */}
-              <div className="absolute -bottom-2.5 right-12 w-4 h-4 bg-white dark:bg-[#162573] border-r-2 border-b-2 border-blue-royal/40 dark:border-sun/50 rotate-45" />
+              <div className="absolute -bottom-2.5 right-12 w-4 h-4 bg-white dark:bg-[#152144] border-r-2 border-b-2 border-blue-royal/40 dark:border-sun/50 rotate-45" />
 
               <div className="flex items-start justify-between gap-2 mb-2">
                 <span className="px-2.5 py-0.5 rounded-pill bg-blue-royal/10 dark:bg-white/10 text-blue-royal dark:text-sun text-xs font-bold">
@@ -186,15 +206,54 @@ export const MascotAssistant: React.FC = () => {
                 <span>{help.tipText}</span>
               </div>
 
-              {/* Ação: Iniciar tutorial completo */}
-              <button
-                type="button"
-                onClick={() => startTutorial(0)}
-                className="w-full min-h-[38px] px-3.5 rounded-pill bg-blue-royal hover:bg-blue-deep active:scale-95 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-soft transition-all"
-              >
-                <Compass size={15} />
-                <span>Iniciar tour</span>
-              </button>
+              {/* Ações de Tour: Tour da tela atual ou Atalhos Rápidos */}
+              <div className="space-y-2 pt-2 border-t border-blue-sky/40 dark:border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSimulationTab) {
+                      startTutorial(TUTORIAL_STEP_SIMULATION_INDEX);
+                    } else if (isInvestmentsTab) {
+                      startTutorial(TUTORIAL_STEP_INVESTMENTS_INDEX);
+                    } else {
+                      startTutorial(0);
+                    }
+                  }}
+                  className="w-full min-h-[38px] px-3.5 rounded-pill bg-blue-royal hover:bg-blue-deep active:scale-95 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-soft transition-all"
+                >
+                  <Compass size={15} />
+                  <span>
+                    {isSimulationTab
+                      ? 'Tour do Simulador de Parcelas'
+                      : isInvestmentsTab
+                      ? 'Tour de Investimentos & Metas'
+                      : 'Iniciar Tour Completo (8 etapas)'}
+                  </span>
+                </button>
+
+                {/* Atalhos diretos para as 2 novas ferramentas */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startTutorial(TUTORIAL_STEP_SIMULATION_INDEX)}
+                    className="min-h-[34px] px-2.5 rounded-xl bg-blue-sky/30 dark:bg-white/10 hover:bg-blue-sky/60 dark:hover:bg-white/20 text-blue-royal-ink dark:text-sun font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors border border-blue-sky/50 dark:border-white/10"
+                    title="Aprender sobre o Simulador de Parcelas"
+                  >
+                    <Calculator size={13} className="shrink-0 text-orange" />
+                    <span className="truncate">Tour Parcelas</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => startTutorial(TUTORIAL_STEP_INVESTMENTS_INDEX)}
+                    className="min-h-[34px] px-2.5 rounded-xl bg-sun/20 dark:bg-white/10 hover:bg-sun/40 dark:hover:bg-white/20 text-blue-deep dark:text-sun font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors border border-sun/40 dark:border-white/10"
+                    title="Aprender sobre Investimentos e Modo Meta"
+                  >
+                    <TrendingUp size={13} className="shrink-0 text-blue-royal dark:text-sun" />
+                    <span className="truncate">Tour Investir</span>
+                  </button>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -210,7 +269,7 @@ export const MascotAssistant: React.FC = () => {
           >
             <LibertySunMascot
               state={isOpen ? 'talking' : !hasSeenGreeting ? 'greeting' : mascotState}
-              size={95}
+              size={80}
               className="drop-shadow-lg"
             />
           </motion.div>

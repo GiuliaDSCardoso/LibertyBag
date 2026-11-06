@@ -36,7 +36,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-[#192B85] rounded-card p-6 lg:p-8 text-center border border-blue-sky/60 dark:border-blue-sky/20 shadow-card flex flex-col items-center justify-center h-full">
+    <div className="bg-white dark:bg-[#152144] rounded-card p-6 lg:p-8 text-center border border-blue-sky/60 dark:border-blue-sky/20 shadow-card flex flex-col items-center justify-center h-full">
       <div className="mb-4">{renderIllustration()}</div>
       <h3 className="font-serif italic text-xl font-bold mb-2 text-blue-deep dark:text-cream">
         {title}

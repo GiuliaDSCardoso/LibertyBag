@@ -6,7 +6,9 @@ export default {
     extend: {
       colors: {
         'blue-royal': '#2346C8',
-        'blue-deep': '#12206B',
+        'blue-royal-ink': '#1B38A6',
+        'blue-deep': '#0D152D',
+        'blue-surface': '#152144',
         'blue-sky': '#BFD4F2',
         cream: '#FBF6EA',
         white: '#FFFFFF',
@@ -20,9 +22,10 @@ export default {
         sans: ['"DM Sans"', 'system-ui', '-apple-system', 'sans-serif']
       },
       borderRadius: {
-        card: '24px',
-        'card-lg': '28px',
-        pill: '9999px'
+        card: '22px',
+        'card-lg': '26px',
+        pill: '9999px',
+        control: '14px'
       },
       spacing: {
         1: '4px',

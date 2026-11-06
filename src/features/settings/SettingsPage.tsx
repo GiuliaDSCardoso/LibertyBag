@@ -126,8 +126,8 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8" data-tutorial="settings-view">
-      <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+    <div className="space-y-8 pb-12" data-tutorial="settings-view">
+      <header className="flex items-start justify-between gap-4 pt-2">
         <div className="min-w-0 flex-1 pr-2">
           <h1 className="title-page text-blue-royal dark:text-sun">
             Mais opções
@@ -144,10 +144,10 @@ export const SettingsPage: React.FC = () => {
         />
       </header>
 
-      {/* Grid de 2 colunas em telas >= 1024px para aproveitar bem o espaço */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Grid de 2 colunas com respiro generoso e Soft UI */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Coluna Esquerda (6 colunas): Tour com Mascote + Como usar + Aparência e Leitura + Nome */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="lg:col-span-6 space-y-8">
           {/* Assistente & Tutorial Guiado */}
           <Card variant="framed" withFlowerWatermark staggerIndex={0}>
             <div className="space-y-3">
@@ -183,7 +183,7 @@ export const SettingsPage: React.FC = () => {
           </Card>
           {/* 1. Como usar (Reabrir Onboarding) — título e texto com 100% de largura, botão abaixo sem espremer */}
           <Card variant="framed" withFlowerWatermark staggerIndex={0}>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-start gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
                   <BookOpen size={20} />
@@ -192,13 +192,13 @@ export const SettingsPage: React.FC = () => {
                   <h2 className="title-section text-blue-royal dark:text-sun">
                     Como usar o LibertyBag
                   </h2>
-                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+                  <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1 leading-relaxed">
                     Reveja a explicação passo a passo de 3 telinhas sempre que quiser.
                   </p>
                 </div>
               </div>
 
-              <div>
+              <div className="pt-2 sm:pt-3">
                 <Button variant="primary" size="md" onClick={reopenOnboarding}>
                   Ver explicação
                 </Button>
@@ -225,7 +225,7 @@ export const SettingsPage: React.FC = () => {
               <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85">
                 Aumente se preferir letras maiores e mais fáceis de enxergar em todas as telas.
               </p>
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2.5 pt-3">
                 {(
                   [
                     { id: 'normal', label: 'Normal' },
@@ -251,12 +251,12 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Tema Claro (Praia) / Escuro (Noite) / Sistema */}
-            <div className="pt-4 border-t border-blue-sky/60 dark:border-blue-sky/20 space-y-2">
+            <div className="pt-5 border-t border-blue-sky/60 dark:border-blue-sky/20 space-y-2.5">
               <span className="block font-bold text-base">Cores da tela (Tema)</span>
               <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85">
                 O tema Praia usa fundo creme claro; o tema Noite usa azul escuro para descansar a vista.
               </p>
-              <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-3 gap-2.5 pt-3">
                 {(
                   [
                     { id: 'praia', label: 'Praia', icon: Sun },
@@ -326,7 +326,7 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Coluna Direita (6 colunas): Espaços/Nuvem + Categorias + Exportar + Apagar dados + Sobre */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="lg:col-span-6 space-y-8">
           {/* 4. Espaços da Família e Sincronização com a Nuvem (Fase 3) */}
           <SpacesAndSyncCard />
 
@@ -345,7 +345,7 @@ export const SettingsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-3 pt-3 sm:pt-4">
                 <Button
                   variant="primary"
                   size="md"
@@ -373,7 +373,7 @@ export const SettingsPage: React.FC = () => {
           </Card>
 
           {/* 6. Importar e Exportar meus dados (CSV / PDF) */}
-          <Card variant="white" staggerIndex={4} className="space-y-3.5">
+          <Card variant="white" staggerIndex={4} className="space-y-4">
             <input
               ref={importFileInputRef}
               type="file"
@@ -389,57 +389,61 @@ export const SettingsPage: React.FC = () => {
               </div>
               <div>
                 <h2 className="title-section">Importar ou Guardar dados (CSV e PDF)</h2>
-                <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+                <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-1 leading-relaxed">
                   Importe extratos/planilhas em CSV ou PDF (com categoria automática) ou baixe uma cópia dos seus dados.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+            <div className="flex flex-wrap items-center gap-3 pt-4 sm:pt-5">
               <Button
                 variant="primary"
                 size="md"
                 disabled={isImportingFile}
+                title="Importar extrato CSV ou PDF"
                 onClick={() => importFileInputRef.current?.click()}
               >
                 <Upload size={18} />
-                <span className="hidden sm:inline">{isImportingFile ? 'Importando...' : 'Importar CSV ou PDF'}</span>
-                <span className="sm:hidden">{isImportingFile ? '...' : 'Importar'}</span>
+                <span>{isImportingFile ? 'Lendo...' : 'Importar'}</span>
               </Button>
 
               <Button
                 variant="secondary"
+                size="md"
+                title="Exportar dados em formato CSV"
                 onClick={async () => {
                   await downloadTransactionsCSV(activeSpaceId);
                   showUndoToast('Planilha CSV baixada!', async () => {});
                 }}
               >
                 <Download size={18} />
-                <span>Exportar CSV</span>
+                <span>Exportar</span>
               </Button>
 
               <Button
                 variant="ghost"
+                size="md"
+                title="Visualizar e imprimir relatório PDF"
                 onClick={async () => {
                   await printTransactionsReportPDF(activeSpaceId, userName);
                 }}
               >
                 <FileText size={18} />
-                <span>Relatório PDF</span>
+                <span>Relatório</span>
               </Button>
             </div>
           </Card>
 
           {/* 6. Apagar meus dados */}
-          <Card variant="white" staggerIndex={5} className="space-y-3 border-red-soft/30">
+          <Card variant="white" staggerIndex={5} className="space-y-4 border-red-soft/30">
             <div className="flex items-center gap-2.5 text-red-soft">
               <Trash2 size={22} className="shrink-0" />
               <h2 className="title-section">Apagar todos os dados</h2>
             </div>
-            <p className="text-sm text-blue-deep/85 dark:text-cream/85">
+            <p className="text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed">
               Atenção: se apagar os dados, apaga tudo do banco de dados (todos os espaços, lançamentos, categorias, cofrinhos, viagens e planejamentos).
             </p>
-            <div className="pt-1">
+            <div className="pt-4 sm:pt-5">
               <Button variant="danger" onClick={() => setConfirmResetOpen(true)}>
                 Apagar todos os dados
               </Button>

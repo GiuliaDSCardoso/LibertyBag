@@ -28,7 +28,8 @@ export const OnboardingModal: React.FC = () => {
   const handleFinish = async (skip = false) => {
     const chosenName = skip ? userName : nameInput.trim();
     if (chosenName) {
-      await db.users.update(DEFAULT_USER_ID, {
+      const currentUserId = useAppStore.getState().activeUserId || DEFAULT_USER_ID;
+      await db.users.update(currentUserId, {
         name: chosenName,
         updatedAt: new Date().toISOString()
       });
@@ -87,7 +88,7 @@ export const OnboardingModal: React.FC = () => {
                 <strong>o dinheiro que entrou</strong>, <strong>o dinheiro que saiu</strong> e{' '}
                 <strong>quanto sobrou</strong> no mês.
               </p>
-              <div className="w-full bg-blue-sky/45 dark:bg-[#192B85] rounded-2xl p-3.5 text-sm text-left mb-6">
+              <div className="w-full bg-blue-sky/45 dark:bg-[#152144] rounded-2xl p-3.5 text-sm text-left mb-6">
                 <p className="font-bold mb-1">💡 Dica importante:</p>
                 <p>
                   Em todas as telas existe um botão <strong>? Ajuda</strong> no topo. Se tiver
@@ -116,7 +117,7 @@ export const OnboardingModal: React.FC = () => {
                 Anote um gasto em 3 toques
               </h1>
               <div className="w-full space-y-2.5 text-left mb-5">
-                <div className="flex items-center gap-3 bg-white dark:bg-[#192B85] p-3.5 rounded-2xl border border-blue-sky/60">
+                <div className="flex items-center gap-3 bg-white dark:bg-[#152144] p-3.5 rounded-2xl border border-blue-sky/60">
                   <span className="w-8 h-8 rounded-full bg-blue-royal text-white font-bold flex items-center justify-center shrink-0">
                     1
                   </span>
@@ -124,7 +125,7 @@ export const OnboardingModal: React.FC = () => {
                     Digite o <strong>valor</strong> no teclado grande.
                   </p>
                 </div>
-                <div className="flex items-center gap-3 bg-white dark:bg-[#192B85] p-3.5 rounded-2xl border border-blue-sky/60">
+                <div className="flex items-center gap-3 bg-white dark:bg-[#152144] p-3.5 rounded-2xl border border-blue-sky/60">
                   <span className="w-8 h-8 rounded-full bg-blue-royal text-white font-bold flex items-center justify-center shrink-0">
                     2
                   </span>
@@ -132,7 +133,7 @@ export const OnboardingModal: React.FC = () => {
                     Escolha se o dinheiro <strong>Entrou</strong> ou <strong>Saiu</strong>.
                   </p>
                 </div>
-                <div className="flex items-center gap-3 bg-white dark:bg-[#192B85] p-3.5 rounded-2xl border border-blue-sky/60">
+                <div className="flex items-center gap-3 bg-white dark:bg-[#152144] p-3.5 rounded-2xl border border-blue-sky/60">
                   <span className="w-8 h-8 rounded-full bg-blue-royal text-white font-bold flex items-center justify-center shrink-0">
                     3
                   </span>
@@ -171,7 +172,7 @@ export const OnboardingModal: React.FC = () => {
                 viagem ou uma reserva). O app mostra quanto guardar por mês para chegar lá tranquilo.
               </p>
 
-              <div className="w-full text-left bg-white dark:bg-[#192B85] p-4 rounded-2xl border border-blue-sky/70 mb-6">
+              <div className="w-full text-left bg-white dark:bg-[#152144] p-4 rounded-2xl border border-blue-sky/70 mb-6">
                 <label
                   htmlFor="onboarding-name-input"
                   className="block font-bold text-base mb-1 text-blue-deep dark:text-cream"

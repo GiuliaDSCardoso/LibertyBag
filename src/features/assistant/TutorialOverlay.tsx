@@ -27,13 +27,14 @@ export const TutorialOverlay: React.FC = () => {
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === TUTORIAL_STEPS.length - 1;
 
-  // Se o passo atual pertence a outra rota, navega até ela
+  // Se o passo atual pertence a outra rota ou aba, navega até ela
   useEffect(() => {
     if (!isTutorialActive) return;
-    if (step && location.pathname !== step.route) {
+    const currentPath = location.pathname + location.search;
+    if (step && currentPath !== step.route) {
       navigate(step.route);
     }
-  }, [isTutorialActive, step, location.pathname, navigate]);
+  }, [isTutorialActive, step, location.pathname, location.search, navigate]);
 
   // Procura o elemento de spotlight na página
   useEffect(() => {
@@ -75,17 +76,17 @@ export const TutorialOverlay: React.FC = () => {
       aria-modal="true"
       className="fixed inset-0 z-50 overflow-hidden pointer-events-none"
     >
-      {/* 1. Backdrop suave e transparente (sem escurecer em excesso e sem borrão pesado) */}
+      {/* 1. Backdrop suave e translúcido (mantém a tela completamente visível e nítida) */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
-        className="absolute inset-0 bg-[#0A1640]/25 dark:bg-black/40 pointer-events-auto"
+        className="absolute inset-0 bg-[#0A1640]/10 dark:bg-black/25 pointer-events-auto"
         onClick={skipTutorial}
       />
 
-      {/* 2. Destaque (Spotlight) com brilho ao redor do elemento focado, mantendo o fundo nítido */}
+      {/* 2. Destaque (Spotlight) com anel dourado sutil */}
       {targetRect && (
         <motion.div
           layoutId="tutorial-spotlight"
@@ -97,12 +98,12 @@ export const TutorialOverlay: React.FC = () => {
             height: targetRect.height + 12
           }}
           transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-          className="absolute pointer-events-none rounded-2xl ring-4 ring-sun shadow-[0_0_24px_rgba(255,183,3,0.85)] z-10"
+          className="absolute pointer-events-none rounded-2xl ring-4 ring-sun shadow-[0_0_20px_rgba(255,183,3,0.7)] z-10"
         />
       )}
 
-      {/* 3. Caixa do Tutorial: posicionada estrategicamente no canto inferior para não cobrir o conteúdo focado */}
-      <div className="fixed bottom-3 inset-x-3 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-md w-auto z-20 pointer-events-auto">
+      {/* 3. Caixa do Tutorial: compacta e bem posicionada sem cobrir o foco */}
+      <div className="fixed bottom-2 inset-x-2 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-md w-auto z-20 pointer-events-auto">
         <AnimatePresence mode="wait">
           {isCelebrating ? (
             <motion.div
@@ -147,10 +148,10 @@ export const TutorialOverlay: React.FC = () => {
               className="bg-cream dark:bg-blue-deep border-2 border-blue-royal/50 dark:border-sun/40 rounded-2xl shadow-soft overflow-hidden flex flex-col"
             >
               {/* Barra superior compacta */}
-              <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/95 dark:bg-[#162573]/95 border-b border-blue-sky/60 dark:border-blue-sky/20 flex items-center justify-between gap-2">
+              <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/95 dark:bg-[#152144]/95 border-b border-blue-sky/60 dark:border-blue-sky/20 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="px-2 py-0.5 rounded-pill bg-blue-royal text-white font-bold text-[11px] sm:text-xs shrink-0">
-                    {step.stepNumber}/6
+                    {step.stepNumber}/{TUTORIAL_STEPS.length}
                   </span>
                   <span className="text-xs font-bold text-blue-deep dark:text-cream truncate">
                     {step.title}
@@ -172,10 +173,10 @@ export const TutorialOverlay: React.FC = () => {
               <div className="p-3 sm:p-4 space-y-2.5">
                 <div className="flex items-start gap-2.5 sm:gap-3">
                   <div className="shrink-0 -mt-1">
-                    <LibertySunMascot state={step.mascotState} size={65} />
+                    <LibertySunMascot state={step.mascotState} size={50} />
                   </div>
 
-                  <div className="flex-1 min-w-0 bg-white dark:bg-[#192B85] p-2.5 sm:p-3 rounded-xl border border-blue-royal/20 shadow-xs">
+                  <div className="flex-1 min-w-0 bg-white dark:bg-[#152144] p-2.5 sm:p-3 rounded-xl border border-blue-royal/20 shadow-xs">
                     <h4 className="font-serif italic text-xs sm:text-sm font-bold text-blue-royal dark:text-sun mb-0.5 leading-tight">
                       {step.balloonTitle}
                     </h4>
@@ -193,7 +194,7 @@ export const TutorialOverlay: React.FC = () => {
               </div>
 
               {/* Rodapé com botões de 1 palavra e ícones */}
-              <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/95 dark:bg-[#162573]/95 border-t border-blue-sky/60 dark:border-blue-sky/20 flex items-center justify-between gap-2">
+              <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-white/95 dark:bg-[#152144]/95 border-t border-blue-sky/60 dark:border-blue-sky/20 flex items-center justify-between gap-2">
                 {/* Indicadores de bolinha */}
                 <div className="flex items-center gap-1">
                   {TUTORIAL_STEPS.map((s, idx) => (

@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { ModalShell } from '../../components/ui/ModalShell';
+import { CustomSelect } from '../../components/ui/CustomSelect';
 import {
   softDeleteTransactionWithUndo,
   updateTransactionWithUndo
@@ -171,7 +172,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               className={`min-h-[48px] rounded-xl font-bold text-sm border-2 ${
                 type === 'saida'
                   ? 'bg-red-soft text-white border-red-soft'
-                  : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                  : 'bg-white dark:bg-[#152144] border-blue-sky'
               }`}
             >
               Dinheiro que saiu
@@ -182,7 +183,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               className={`min-h-[48px] rounded-xl font-bold text-sm border-2 ${
                 type === 'entrada'
                   ? 'bg-green-ok text-white border-green-ok'
-                  : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                  : 'bg-white dark:bg-[#152144] border-blue-sky'
               }`}
             >
               Dinheiro que entrou
@@ -200,7 +201,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               inputMode="decimal"
               value={amountInput}
               onChange={(e) => setAmountInput(e.target.value)}
-              className="w-full min-h-[52px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 border-blue-sky font-extrabold text-2xl tabular-nums"
+              className="w-full min-h-[52px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 border-blue-sky font-extrabold text-2xl tabular-nums"
             />
           </div>
 
@@ -218,7 +219,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                     className={`min-h-[64px] p-2 rounded-xl flex flex-col items-center justify-center gap-1 border-2 text-xs font-bold ${
                       selected
                         ? 'border-blue-royal bg-blue-sky/50 dark:bg-blue-royal/50'
-                        : 'border-blue-sky/50 bg-white dark:bg-[#192B85]'
+                        : 'border-blue-sky/50 bg-white dark:bg-[#152144]'
                     }`}
                   >
                     <div
@@ -245,7 +246,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
+                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/20 font-extrabold shadow-sm dark:[color-scheme:dark]"
               />
             </div>
 
@@ -253,20 +254,20 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               <label htmlFor="edit-payment" className="block font-bold text-sm mb-1">
                 Forma de pagamento
               </label>
-              <select
+              <CustomSelect
                 id="edit-payment"
                 value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky font-semibold"
-              >
-                <option value="pix">Pix (À vista)</option>
-                <option value="credito">Cartão de Crédito</option>
-                <option value="pix_parcelado">Pix Parcelado</option>
-                <option value="debito">Cartão de Débito</option>
-                <option value="dinheiro">Dinheiro</option>
-                <option value="cartao">Cartão</option>
-                <option value="outro">Outro</option>
-              </select>
+                onChange={(val) => setPaymentMethod(val as PaymentMethod)}
+                options={[
+                  { value: 'pix', label: 'Pix (À vista)' },
+                  { value: 'credito', label: 'Cartão de Crédito' },
+                  { value: 'pix_parcelado', label: 'Pix Parcelado' },
+                  { value: 'debito', label: 'Cartão de Débito' },
+                  { value: 'dinheiro', label: 'Dinheiro' },
+                  { value: 'cartao', label: 'Cartão' },
+                  { value: 'outro', label: 'Outro' }
+                ]}
+              />
             </div>
           </div>
 
@@ -280,7 +281,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Ex.: Compra da semana"
-              className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] border border-blue-sky"
+              className="w-full min-h-[48px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky"
             />
           </div>
         </form>

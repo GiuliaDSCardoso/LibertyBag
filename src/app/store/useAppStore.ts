@@ -44,7 +44,14 @@ interface AppState {
   completeOnboarding: (name?: string) => void;
   reopenOnboarding: () => void;
   setUserName: (name: string) => void;
-  loginUser: (payload: { name?: string; email?: string; isFirstLogin?: boolean }) => void;
+  loginUser: (payload: {
+    name?: string;
+    email?: string;
+    userId?: string;
+    spaceId?: string;
+    isFirstLogin?: boolean;
+  }) => void;
+  setActiveUserId: (userId: string) => void;
   logoutUser: () => void;
   setActiveSpaceId: (spaceId: string) => void;
   openAddModal: () => void;
@@ -74,7 +81,20 @@ export const useAppStore = create<AppState>()((set) => ({
     })),
   reopenOnboarding: () => set({ hasSeenOnboarding: false }),
   setUserName: (userName) => set({ userName: userName.trim() }),
-  loginUser: ({ name, email, isFirstLogin }) => {
+  loginUser: ({ name, email, userId, spaceId, isFirstLogin }) => {
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    // Define IDs padrão seguros se não fornecidos
+    const resolvedUserId =
+      userId ||
+      (cleanEmail.includes('giuli') || cleanEmail === 'local@libertybag.app'
+        ? DEFAULT_USER_ID
+        : `user-${cleanEmail.replace(/[^a-z0-9]/gi, '').slice(0, 10)}`);
+    const resolvedSpaceId =
+      spaceId ||
+      (resolvedUserId === DEFAULT_USER_ID
+        ? DEFAULT_SPACE_ID
+        : `space-personal-${resolvedUserId}`);
+
     if (typeof window !== 'undefined') {
       try {
         sessionStorage.removeItem('libertybag_logged_out_v1');
@@ -82,7 +102,9 @@ export const useAppStore = create<AppState>()((set) => ({
           'libertybag_active_session_v1',
           JSON.stringify({
             name: name ? name.trim() : '',
-            email: email ? email.trim().toLowerCase() : ''
+            email: cleanEmail,
+            userId: resolvedUserId,
+            spaceId: resolvedSpaceId
           })
         );
       } catch {
@@ -93,9 +115,12 @@ export const useAppStore = create<AppState>()((set) => ({
       isAuthenticated: true,
       hasSeenOnboarding: isFirstLogin ? false : true,
       userName: name ? name.trim() : state.userName,
-      userEmail: email ? email.trim().toLowerCase() : state.userEmail
+      userEmail: cleanEmail || state.userEmail,
+      activeUserId: resolvedUserId,
+      activeSpaceId: resolvedSpaceId
     }));
   },
+  setActiveUserId: (activeUserId) => set({ activeUserId }),
   logoutUser: () => {
     if (typeof window !== 'undefined') {
       try {
@@ -116,6 +141,8 @@ export const useAppStore = create<AppState>()((set) => ({
       isAuthenticated: false,
       userName: '',
       userEmail: '',
+      activeUserId: DEFAULT_USER_ID,
+      activeSpaceId: DEFAULT_SPACE_ID,
       isAddModalOpen: false
     });
   },

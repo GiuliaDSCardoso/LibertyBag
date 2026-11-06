@@ -56,7 +56,7 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     id: 'planning',
     stepNumber: 4,
     title: 'Metas & Cofrinhos',
-    route: '/planejar',
+    route: '/planejar?tab=cofrinhos',
     targetSelector: '[data-tutorial="planning-view"]',
     balloonTitle: 'Planejar o Futuro',
     explanation:
@@ -66,8 +66,34 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     mascotState: 'talking'
   },
   {
-    id: 'analytics',
+    id: 'simulation',
     stepNumber: 5,
+    title: 'Simulador de Parcelas',
+    route: '/planejar?tab=simulador',
+    targetSelector: '[data-tutorial="installment-simulator"]',
+    balloonTitle: 'Pix x Cartão Sem Juros Abusivos',
+    explanation:
+      'Descubra o valor real de cada parcela no Nubank, Inter, Itaú, PicPay e outros bancos antes de fechar qualquer compra!',
+    practicalTip:
+      'Cadastre seus limites para o LibertyBag avisar na hora se uma simulação ultrapassar seu limite disponível.',
+    mascotState: 'thinking'
+  },
+  {
+    id: 'investments',
+    stepNumber: 6,
+    title: 'Simular Investimentos',
+    route: '/planejar?tab=investimentos',
+    targetSelector: '[data-tutorial="investments-view"]',
+    balloonTitle: 'Juros Compostos ao seu Favor',
+    explanation:
+      'Projete seu dinheiro crescendo no Tesouro Direto, CDBs e LCIs. Use o Modo Meta para calcular quanto guardar por mês ou em quanto tempo alcança seu sonho.',
+    practicalTip:
+      'Reinvestir os rendimentos todo mês ativa o efeito bola de neve, fazendo seu patrimônio se multiplicar sozinho.',
+    mascotState: 'celebrating'
+  },
+  {
+    id: 'analytics',
+    stepNumber: 7,
     title: 'Análises Visuais',
     route: '/analises',
     targetSelector: '[data-tutorial="analytics-view"]',
@@ -80,7 +106,7 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
   },
   {
     id: 'more',
-    stepNumber: 6,
+    stepNumber: 8,
     title: 'Backup & App PWA',
     route: '/mais',
     targetSelector: '[data-tutorial="settings-view"]',
@@ -92,3 +118,6 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     mascotState: 'celebrating'
   }
 ];
+
+export const TUTORIAL_STEP_SIMULATION_INDEX = 4;
+export const TUTORIAL_STEP_INVESTMENTS_INDEX = 5;

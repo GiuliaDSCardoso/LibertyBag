@@ -109,3 +109,37 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
+
+/* Botão e campos de data brancos no Modo Escuro em todos os lugares */
+.dark input[type="date"],
+html.dark input[type="date"] {
+  background-color: #FFFFFF !important;
+  color: #0D152D !important;
+  border: 2px solid #FFFFFF !important;
+  font-weight: 800 !important;
+  border-radius: 14px !important;
+  color-scheme: light !important;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+html.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0) !important;
+  opacity: 0.9;
+  cursor: pointer;
+}
+
+/* Estética Retrô anos 1930 (Rubber Hose & Editorial Vintage) */
+.badge-retro {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.shadow-retro {
+  box-shadow: 3px 3px 0px rgba(13, 21, 45, 0.9);
+}
+
+.dark .shadow-retro {
+  box-shadow: 3px 3px 0px rgba(107, 159, 216, 0.45);
+}

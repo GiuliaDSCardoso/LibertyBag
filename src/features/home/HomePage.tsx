@@ -23,7 +23,7 @@ import { getTipOfTheDay } from '../../lib/tips';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { HelpButton } from '../../components/ui/HelpButton';
-import { CategoryIcon } from '../../components/ui/CategoryIcon';
+import { CategoryStampBadge } from '../../components/ui/CategoryIcon';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { AnimatedMoney } from '../../components/ui/AnimatedMoney';
 import { TransactionDetailModal } from '../transactions/TransactionDetailModal';
@@ -121,11 +121,11 @@ export const HomePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-8 pb-12">
       {/* Cabeçalho com Saudação e Botão de Ajuda "?" */}
-      <header className="flex items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+      <header className="flex items-start justify-between gap-4 pt-2">
         <div className="min-w-0 flex-1 pr-2">
-          <span className="inline-block px-3 py-0.5 rounded-pill bg-sun/90 text-blue-deep text-xs font-bold mb-1.5 sm:mb-2">
+          <span className="inline-block px-3 py-0.5 rounded-pill bg-sun/90 text-blue-deep text-xs font-bold mb-2 shadow-xs">
             {monthRange.label}
           </span>
           <h1 className="title-page text-blue-royal dark:text-sun">
@@ -143,10 +143,10 @@ export const HomePage: React.FC = () => {
         />
       </header>
 
-      {/* Grid de 2 colunas em telas >= 1024px (lg:grid-cols-12) e 1 coluna em telas menores */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Grid de 2 colunas com respiro generoso e Soft UI */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Coluna Principal (7 colunas no desktop): Ação Principal + 3 Números + Barra de Orçamento */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-7">
           {/* Ação Principal destacada em azul */}
           <Button
             variant="primary"
@@ -192,30 +192,34 @@ export const HomePage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-stretch">
               <Card variant="white" staggerIndex={1} className="h-full flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 text-green-ok font-bold text-base mb-1.5">
-                    <ArrowUpCircle size={22} aria-hidden="true" className="shrink-0" />
-                    <span>Dinheiro que entrou</span>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-green-ok/15 text-green-ok flex items-center justify-center shrink-0">
+                      <ArrowUpCircle size={20} aria-hidden="true" />
+                    </div>
+                    <span className="font-bold text-sm sm:text-base text-blue-deep dark:text-cream">Dinheiro que entrou</span>
                   </div>
                   <p className="font-sans font-extrabold text-2xl sm:text-3xl text-green-ok my-2">
                     <AnimatedMoney cents={totals.entrou} />
                   </p>
                 </div>
-                <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
+                <p className="text-xs sm:text-sm text-blue-deep/80 dark:text-cream/80 mt-1.5">
                   Tudo que você recebeu neste mês (salário, extra, presente).
                 </p>
               </Card>
 
               <Card variant="white" staggerIndex={2} className="h-full flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center gap-2 text-red-soft font-bold text-base mb-1.5">
-                    <ArrowDownCircle size={22} aria-hidden="true" className="shrink-0" />
-                    <span>Dinheiro que saiu</span>
+                  <div className="flex items-center gap-2.5 mb-2">
+                    <div className="w-8 h-8 rounded-full bg-red-soft/15 text-red-soft flex items-center justify-center shrink-0">
+                      <ArrowDownCircle size={20} aria-hidden="true" />
+                    </div>
+                    <span className="font-bold text-sm sm:text-base text-blue-deep dark:text-cream">Dinheiro que saiu</span>
                   </div>
                   <p className="font-sans font-extrabold text-2xl sm:text-3xl text-red-soft my-2">
                     <AnimatedMoney cents={totals.saiu} />
                   </p>
                 </div>
-                <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
+                <p className="text-xs sm:text-sm text-blue-deep/80 dark:text-cream/80 mt-1.5">
                   Tudo que você pagou ou comprou neste mês.
                 </p>
               </Card>
@@ -247,7 +251,7 @@ export const HomePage: React.FC = () => {
                   setBudgetInput(plannedCents > 0 ? String(plannedCents / 100) : '2000');
                   setEditingBudget((v) => !v);
                 }}
-                className="min-h-[48px] px-4 rounded-pill bg-white dark:bg-blue-deep text-blue-royal dark:text-sun text-sm font-bold whitespace-nowrap shrink-0 shadow-xs hover:bg-cream transition-colors"
+                className="min-h-[46px] px-4 rounded-pill bg-white dark:bg-[#152144] border-2 border-blue-royal/20 text-blue-royal dark:text-sun text-sm font-bold whitespace-nowrap shrink-0 shadow-xs hover:bg-cream dark:hover:bg-blue-royal/20 transition-all hover-lift"
               >
                 {plannedCents > 0 ? 'Ajustar valor' : 'Definir valor'}
               </button>
@@ -306,7 +310,7 @@ export const HomePage: React.FC = () => {
         </div>
 
         {/* Coluna Direita (5 colunas no desktop): Últimos lançamentos + Dica do dia */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-7">
           <section aria-label="Últimos lançamentos">
             <div className="flex items-center justify-between gap-2 mb-3 px-1">
               <h2 className="title-section text-blue-royal dark:text-sun">
@@ -345,15 +349,14 @@ export const HomePage: React.FC = () => {
                         transition={{ duration: 0.18 }}
                         type="button"
                         onClick={() => setSelectedTx(tx)}
-                        className="w-full min-h-[72px] p-4 rounded-card bg-white dark:bg-[#192B85] hover:bg-blue-sky/35 border border-blue-sky/60 dark:border-blue-sky/20 shadow-card flex items-center justify-between gap-3 text-left transition-all hover-lift"
+                        className="w-full min-h-[72px] p-4 rounded-card bg-white dark:bg-[#152144] hover:bg-blue-sky/35 border border-blue-sky/60 dark:border-white/10 shadow-card flex items-center justify-between gap-3 text-left transition-all hover-lift"
                       >
                         <div className="flex items-center gap-3.5 min-w-0">
-                          <div
-                            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0"
-                            style={{ backgroundColor: cat?.color || '#2346C8' }}
-                          >
-                            <CategoryIcon name={cat?.icon || 'MoreHorizontal'} size={22} />
-                          </div>
+                          <CategoryStampBadge
+                            name={cat?.icon || 'MoreHorizontal'}
+                            color={cat?.color || '#2346C8'}
+                            size="md"
+                          />
                           <div className="min-w-0">
                             <p className="font-bold text-base truncate">
                               {cat?.name || 'Categoria'}
@@ -397,13 +400,13 @@ export const HomePage: React.FC = () => {
                 <Sparkles size={22} />
               </div>
               <div>
-                <span className="text-xs font-extrabold uppercase tracking-wider text-blue-royal block mb-1">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-blue-royal dark:text-sun block mb-1">
                   Dica do dia
                 </span>
-                <h3 className="font-serif italic text-xl font-bold text-blue-deep mb-1.5">
+                <h3 className="font-serif italic text-xl font-bold text-blue-deep dark:text-white mb-1.5">
                   {tip.title}
                 </h3>
-                <p className="text-sm text-blue-deep/95 leading-relaxed">{tip.text}</p>
+                <p className="text-sm text-blue-deep/95 dark:text-cream leading-relaxed">{tip.text}</p>
               </div>
             </div>
           </Card>

@@ -45,6 +45,30 @@ export const CONTEXTUAL_HELP: Record<string, ContextualHelpData> = {
     tipText:
       'A regra de ouro: pague a si mesmo primeiro! Ao receber seu salário ou renda, separe logo a fatia do seu cofrinho.'
   },
+  '/simulador': {
+    route: '/planejar?tab=simulador',
+    badge: 'Simulação Inteligente',
+    title: 'Dica: Parcelamento Seguro',
+    summary:
+      'Simule antes de comprar! Compare as taxas do Pix Parcelado e Cartão de Crédito entre os bancos brasileiros mais populares (Inter, Nubank, Itaú, PicPay e outros).',
+    conceptTitle: 'Conceito: Juros Compostos no Parcelamento',
+    conceptText:
+      'Parcelamentos bancários usam juros sobre juros (Tabela Price). Uma diferença de apenas 1% ao mês pode custar centenas de reais extras no final das parcelas!',
+    tipText:
+      'Dica do Solzinho: cadastre seus limites no botão "Meus Limites". O LibertyBag avisa se a compra vai ultrapassar seu limite disponível antes de você fechar negócio!'
+  },
+  '/investimentos': {
+    route: '/planejar?tab=investimentos',
+    badge: 'Inteligência Financeira',
+    title: 'Dica: Investimentos & Metas',
+    summary:
+      'Veja o poder dos juros compostos trabalhando para você! Aqui você projeta seu patrimônio no Tesouro Direto, CDBs, LCIs e Fundos Imobiliários.',
+    conceptTitle: 'Conceito: Efeito Bola de Neve & Modo Meta',
+    conceptText:
+      'Ao reinvestir seus lucros mensais, o juro rende sobre o juro anterior. Ative o "Modo Meta" para descobrir exatamente quanto tempo falta ou quanto guardar por mês!',
+    tipText:
+      'Dica de ouro: para prazos curtos (até 1 ano), investimentos isentos de IR (como LCIs/LCAs) entregam rentabilidade líquida superior a quase todos os CDBs!'
+  },
   '/analises': {
     route: '/analises',
     badge: 'Gráficos & Hábitos',
@@ -71,11 +95,14 @@ export const CONTEXTUAL_HELP: Record<string, ContextualHelpData> = {
   }
 };
 
-export function getContextualHelp(pathname: string): ContextualHelpData {
-  if (CONTEXTUAL_HELP[pathname]) {
-    return CONTEXTUAL_HELP[pathname];
+export function getContextualHelp(pathname: string, search = ''): ContextualHelpData {
+  const full = pathname + search;
+  if (full.includes('tab=simulador') || pathname.startsWith('/simulador')) {
+    return CONTEXTUAL_HELP['/simulador'];
   }
-  // Fallback para qualquer sub-rota
+  if (full.includes('tab=investimentos') || pathname.startsWith('/investimentos')) {
+    return CONTEXTUAL_HELP['/investimentos'];
+  }
   if (pathname.startsWith('/lancamentos')) return CONTEXTUAL_HELP['/lancamentos'];
   if (pathname.startsWith('/planejar')) return CONTEXTUAL_HELP['/planejar'];
   if (pathname.startsWith('/analises')) return CONTEXTUAL_HELP['/analises'];

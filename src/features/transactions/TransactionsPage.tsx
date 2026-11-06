@@ -29,9 +29,10 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { HelpButton } from '../../components/ui/HelpButton';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
-import { CategoryIcon } from '../../components/ui/CategoryIcon';
+import { CategoryStampBadge } from '../../components/ui/CategoryIcon';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { AnimatedMoney } from '../../components/ui/AnimatedMoney';
+import { CustomSelect } from '../../components/ui/CustomSelect';
 import { importTransactionsFromFileWithUndo } from '../settings/importService';
 import {
   bulkSoftDeleteTransactionsWithUndo,
@@ -193,7 +194,7 @@ export const TransactionsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-8" data-tutorial="transactions-view">
+    <div className="space-y-8 pb-12" data-tutorial="transactions-view">
       <input
         ref={fileInputRef}
         type="file"
@@ -216,7 +217,7 @@ export const TransactionsPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Alternador de Modo de Visualização: Cartões vs Tabela Excel */}
-          <div className="inline-flex items-center p-1 bg-white dark:bg-[#192B85] rounded-xl border border-blue-sky/70 shadow-xs">
+          <div className="inline-flex items-center p-1 bg-white dark:bg-[#152144] rounded-xl border border-blue-sky/70 shadow-xs">
             <button
               type="button"
               onClick={() => handleSetViewMode('cards')}
@@ -238,10 +239,10 @@ export const TransactionsPage: React.FC = () => {
                   ? 'bg-blue-royal text-white shadow-xs'
                   : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-blue-royal/30'
               }`}
-              title="Visualização em tabela estilo Excel com edição rápida de data, valor e repetições"
+              title="Visualização em tabela estilo planilha com edição rápida"
             >
               <Table size={15} />
-              <span>Tabela Excel</span>
+              <span>Tabela</span>
             </button>
           </div>
 
@@ -249,6 +250,9 @@ export const TransactionsPage: React.FC = () => {
             <Button
               variant={isSelectMode ? 'sun' : 'danger'}
               size="md"
+              title={isSelectMode ? 'Cancelar remoção' : 'Remover lançamentos'}
+              aria-label={isSelectMode ? 'Cancelar remoção' : 'Remover lançamentos'}
+              className="max-sm:min-h-[42px] max-sm:w-[42px] max-sm:h-[42px] max-sm:p-0 max-sm:rounded-full"
               onClick={() => {
                 setIsSelectMode((v) => {
                   const next = !v;
@@ -257,9 +261,8 @@ export const TransactionsPage: React.FC = () => {
                 });
               }}
             >
-              <Trash2 size={17} />
-              <span>{isSelectMode ? 'Cancelar' : 'Remover'}</span>
-              <span className="hidden sm:inline">{isSelectMode ? ' remoção' : ' lançamentos'}</span>
+              {isSelectMode ? <X size={18} /> : <Trash2 size={18} />}
+              <span className="hidden sm:inline">{isSelectMode ? 'Cancelar' : 'Remover'}</span>
             </Button>
           )}
 
@@ -267,11 +270,13 @@ export const TransactionsPage: React.FC = () => {
             variant="secondary"
             size="md"
             disabled={isImporting}
+            title="Importar lançamentos CSV ou PDF"
+            aria-label="Importar lançamentos CSV ou PDF"
+            className="max-sm:min-h-[42px] max-sm:w-[42px] max-sm:h-[42px] max-sm:p-0 max-sm:rounded-full"
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload size={17} />
-            <span className="hidden sm:inline">{isImporting ? 'Importando...' : 'Importar CSV ou PDF'}</span>
-            <span className="sm:hidden">{isImporting ? '...' : 'Importar'}</span>
+            <Upload size={18} />
+            <span className="hidden sm:inline">{isImporting ? 'Lendo...' : 'Importar'}</span>
           </Button>
 
           <HelpButton
@@ -375,8 +380,8 @@ export const TransactionsPage: React.FC = () => {
                 aria-expanded={showFilters}
                 className={`min-h-[48px] px-5 rounded-pill font-bold text-sm inline-flex items-center gap-2.5 whitespace-nowrap transition-colors ${
                   hasActiveFilter || showFilters
-                    ? 'bg-blue-royal text-white'
-                    : 'bg-white dark:bg-blue-deep text-blue-deep dark:text-cream'
+                    ? 'bg-blue-royal text-white shadow-xs'
+                    : 'bg-white dark:bg-blue-deep text-blue-deep dark:text-cream border-2 border-blue-royal/20 shadow-xs'
                 }`}
               >
                 <Filter size={18} />
@@ -423,19 +428,19 @@ export const TransactionsPage: React.FC = () => {
                 <label htmlFor="filter-category" className="block text-sm font-bold mb-1.5">
                   Filtrar por categoria:
                 </label>
-                <select
+                <CustomSelect
                   id="filter-category"
                   value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
-                  className="w-full min-h-[50px] px-3.5 rounded-xl bg-cream dark:bg-blue-deep border border-blue-sky font-bold text-sm"
-                >
-                  <option value="all">Todas as categorias</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.type === 'entrada' ? 'Entrou' : 'Saiu'})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedCategoryId(val)}
+                  options={[
+                    { value: 'all', label: 'Todas as categorias' },
+                    ...categories.map((c) => ({
+                      value: c.id,
+                      label: `${c.name} (${c.type === 'entrada' ? 'Entrou' : 'Saiu'})`,
+                      color: c.color
+                    }))
+                  ]}
+                />
               </div>
             </Card>
           )}
@@ -456,7 +461,7 @@ export const TransactionsPage: React.FC = () => {
                       setSelectedIds(new Set(filteredTransactions.map((t) => t.id)));
                     }
                   }}
-                  className="min-h-[42px] px-3.5 rounded-xl bg-white dark:bg-[#192B85] text-blue-deep dark:text-cream text-xs font-bold border border-blue-sky inline-flex items-center gap-2 hover:bg-cream transition-colors shadow-xs"
+                  className="min-h-[42px] px-3.5 rounded-xl bg-white dark:bg-[#152144] text-blue-deep dark:text-cream text-xs font-bold border border-blue-sky inline-flex items-center gap-2 hover:bg-cream transition-colors shadow-xs"
                 >
                   {selectedIds.size === filteredTransactions.length ? (
                     <>
@@ -579,7 +584,7 @@ export const TransactionsPage: React.FC = () => {
                                 setSelectedTx(tx);
                               }
                             }}
-                            className={`w-full min-h-[72px] p-4 rounded-card bg-white dark:bg-[#192B85] border flex items-center justify-between gap-3 text-left transition-all hover-lift ${
+                            className={`w-full min-h-[72px] p-4 rounded-card bg-white dark:bg-[#152144] border flex items-center justify-between gap-3 text-left transition-all hover-lift ${
                               isSelected
                                 ? 'border-red-soft ring-2 ring-red-soft/40 bg-red-soft/10 dark:bg-red-soft/20 shadow-soft'
                                 : 'hover:bg-blue-sky/35 border-blue-sky/60 dark:border-blue-sky/20 shadow-card'
@@ -598,12 +603,11 @@ export const TransactionsPage: React.FC = () => {
                                 </div>
                               )}
 
-                              <div
-                                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0"
-                                style={{ backgroundColor: cat?.color || '#2346C8' }}
-                              >
-                                <CategoryIcon name={cat?.icon || 'MoreHorizontal'} size={22} />
-                              </div>
+                              <CategoryStampBadge
+                                name={cat?.icon || 'MoreHorizontal'}
+                                color={cat?.color || '#2346C8'}
+                                size="md"
+                              />
                               <div className="min-w-0">
                                 <p className="font-bold text-base truncate">
                                   {cat?.name || 'Categoria'}

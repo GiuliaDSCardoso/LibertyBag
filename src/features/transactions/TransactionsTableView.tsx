@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ChevronDown,
   Pencil,
   RefreshCw,
   Trash2
@@ -14,7 +13,7 @@ import {
 import { formatCentsToBRL, parseReaisStringToCents } from '../../lib/money';
 import { updateTransactionWithUndo } from './transactionService';
 import { useAppStore } from '../../app/store/useAppStore';
-import { CategoryIcon } from '../../components/ui/CategoryIcon';
+import { CustomSelect } from '../../components/ui/CustomSelect';
 
 interface TransactionsTableViewProps {
   transactions: TransactionRecord[];
@@ -162,7 +161,7 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-[#192B85] rounded-card border-2 border-blue-sky/70 dark:border-blue-sky/30 shadow-card overflow-hidden">
+    <div className="bg-white dark:bg-[#152144] rounded-card border-2 border-blue-sky/70 dark:border-blue-sky/30 shadow-card overflow-hidden">
       {/* Barra de ajuda rápida da tabela */}
       <div className="bg-cream dark:bg-blue-deep/60 px-4 py-2.5 border-b border-blue-sky/60 dark:border-blue-sky/20 flex flex-wrap items-center justify-between gap-2 text-xs text-blue-deep/85 dark:text-cream/85">
         <div className="flex items-center gap-2 font-medium">
@@ -195,7 +194,6 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
           <tbody className="divide-y divide-blue-sky/40 dark:divide-blue-sky/15 text-sm">
             {transactions.map((tx, idx) => {
               const isSelected = selectedIds.has(tx.id);
-              const cat = categoriesMap.get(tx.categoryId);
               const isRepeating = Boolean(tx.recurrenceId || tx.installment?.groupId);
 
               return (
@@ -205,7 +203,7 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                     isSelected
                       ? 'bg-red-soft/10 dark:bg-red-soft/20'
                       : idx % 2 === 0
-                        ? 'bg-white dark:bg-[#192B85]'
+                        ? 'bg-white dark:bg-[#152144]'
                         : 'bg-cream/35 dark:bg-[#16277B]/40'
                   } hover:bg-blue-sky/20 dark:hover:bg-blue-royal/20`}
                 >
@@ -229,7 +227,7 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                         type="date"
                         value={tx.date}
                         onChange={(e) => handleChangeDate(tx, e.target.value)}
-                        className="bg-transparent hover:bg-white dark:hover:bg-blue-deep px-2 py-1 rounded-lg border border-transparent hover:border-blue-sky focus:border-blue-royal focus:bg-white dark:focus:bg-blue-deep font-semibold text-xs sm:text-sm text-blue-deep dark:text-cream cursor-pointer transition-all"
+                        className="bg-white dark:bg-[#152144] px-2.5 py-1 rounded-lg border border-blue-sky/70 dark:border-white/20 focus:border-blue-royal font-extrabold text-xs sm:text-sm text-blue-deep dark:text-cream cursor-pointer transition-all shadow-xs dark:[color-scheme:dark]"
                         title={isRepeating ? 'Lançamento repetido: mudar o dia altera em todos os meses!' : 'Mudar data'}
                       />
                       {isRepeating && (
@@ -291,55 +289,32 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                   </td>
 
                   {/* 4. Categoria */}
-                  <td className="py-2.5 px-3.5">
-                    <div className="relative">
-                      <select
-                        value={tx.categoryId}
-                        onChange={(e) => handleChangeCategory(tx, e.target.value)}
-                        className="w-full bg-transparent hover:bg-white dark:hover:bg-blue-deep pl-7 pr-6 py-1 rounded-lg border border-transparent hover:border-blue-sky focus:border-blue-royal focus:bg-white dark:focus:bg-blue-deep font-semibold text-xs sm:text-sm text-blue-deep dark:text-cream cursor-pointer transition-all appearance-none"
-                      >
-                        {categories
-                          .filter((c) => c.type === tx.type)
-                          .map((c) => (
-                            <option key={c.id} value={c.id} className="dark:bg-blue-deep">
-                              {c.name}
-                            </option>
-                          ))}
-                      </select>
-                      <div
-                        className="absolute left-1.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded flex items-center justify-center text-white pointer-events-none"
-                        style={{ backgroundColor: cat?.color || '#2346C8' }}
-                      >
-                        <CategoryIcon name={cat?.icon || 'Tags'} size={11} />
-                      </div>
-                      <ChevronDown
-                        size={13}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
-                      />
-                    </div>
+                  <td className="py-2 px-3 min-w-[150px]">
+                    <CustomSelect
+                      value={tx.categoryId}
+                      onChange={(newCatId) => handleChangeCategory(tx, newCatId)}
+                      size="sm"
+                      options={categories
+                        .filter((c) => c.type === tx.type)
+                        .map((c) => ({
+                          value: c.id,
+                          label: c.name,
+                          color: c.color
+                        }))}
+                    />
                   </td>
 
                   {/* 5. Forma de Pagamento */}
-                  <td className="py-2.5 px-3.5">
-                    <div className="relative">
-                      <select
-                        value={tx.paymentMethod || 'pix'}
-                        onChange={(e) =>
-                          handleChangePaymentMethod(tx, e.target.value as PaymentMethod)
-                        }
-                        className="w-full bg-transparent hover:bg-white dark:hover:bg-blue-deep px-2 py-1 rounded-lg border border-transparent hover:border-blue-sky focus:border-blue-royal focus:bg-white dark:focus:bg-blue-deep font-medium text-xs sm:text-sm text-blue-deep dark:text-cream cursor-pointer transition-all appearance-none pr-6"
-                      >
-                        {Object.entries(PAYMENT_METHOD_LABELS).map(([k, label]) => (
-                          <option key={k} value={k} className="dark:bg-blue-deep">
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        size={13}
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
-                      />
-                    </div>
+                  <td className="py-2 px-3 min-w-[140px]">
+                    <CustomSelect
+                      value={tx.paymentMethod || 'pix'}
+                      onChange={(newPm) => handleChangePaymentMethod(tx, newPm as PaymentMethod)}
+                      size="sm"
+                      options={Object.entries(PAYMENT_METHOD_LABELS).map(([k, label]) => ({
+                        value: k,
+                        label
+                      }))}
+                    />
                   </td>
 
                   {/* 6. Valor (R$) (Edição inline como Excel) */}

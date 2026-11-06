@@ -1,5 +1,5 @@
 import { type Table } from 'dexie';
-import { db, type BaseEntity, type UserRecord } from '../../db/dexie';
+import { db, type BaseEntity, type SpaceMemberRecord, type UserRecord } from '../../db/dexie';
 import {
   DEFAULT_ACCOUNT_ID,
   DEFAULT_CATEGORIES_SEED,
@@ -7,6 +7,7 @@ import {
   DEFAULT_USER_ID
 } from '../../db/seed';
 import { getSupabaseClient } from '../../lib/supabase';
+import { useAppStore } from '../../app/store/useAppStore';
 
 const DEFAULT_CATEGORY_IDS = new Set(DEFAULT_CATEGORIES_SEED.map((c) => c.id));
 
@@ -185,7 +186,42 @@ export async function syncAllWithSupabase(): Promise<SyncResult> {
       }
     }
 
-    // Verifica se o usuário já criou algum dado real (lançamento, orçamento, cofrinho, viagem, conta ou categoria personalizada)
+    // 1. Identifica o usuário e os espaços aos quais ele tem permissão de acesso
+    const userState = useAppStore.getState();
+    const activeUserId = userState.activeUserId;
+    const userEmail = userState.userEmail?.trim().toLowerCase();
+    const activeSpaceId = userState.activeSpaceId;
+
+    const localMembers = await db.space_members
+      .where('userId')
+      .equals(activeUserId)
+      .and((m) => !m.deletedAt)
+      .toArray();
+
+    const allowedSpaceSet = new Set<string>(localMembers.map((m) => m.spaceId));
+    if (activeSpaceId) {
+      allowedSpaceSet.add(activeSpaceId);
+    }
+
+    // Busca no Supabase se este usuário foi convidado para novos espaços compartilhados
+    if (activeUserId && activeUserId !== DEFAULT_USER_ID) {
+      const { data: remoteMembers } = await supabase
+        .from('space_members')
+        .select('*')
+        .eq('userId', activeUserId);
+      if (remoteMembers) {
+        for (const rm of remoteMembers) {
+          if (!rm.deletedAt && rm.spaceId) {
+            allowedSpaceSet.add(rm.spaceId);
+            await db.space_members.put(rm as unknown as SpaceMemberRecord);
+          }
+        }
+      }
+    }
+
+    const allowedSpaceIds = Array.from(allowedSpaceSet);
+
+    // Verifica se o usuário já criou algum dado real
     const [txCount, recCount, budCount, goalCount, tripCount, allCats] = await Promise.all([
       db.transactions.count(),
       db.recurrences.count(),
@@ -200,49 +236,82 @@ export async function syncAllWithSupabase(): Promise<SyncResult> {
 
     for (const { name, getDexieTable } of SYNC_TABLES) {
       const table = getDexieTable();
-      let localRows = await table.toArray();
+      const localRows = await table.toArray();
 
-      // Na tabela users, nunca envia o usuário placeholder 'local@libertybag.app' para a nuvem
+      // ESCOPO RESTRITO PARA PUSH (só envia registros de espaços que o usuário tem acesso)
+      let localRowsToPush = localRows;
       if (name === 'users') {
-        localRows = (localRows as unknown as UserRecord[]).filter(
+        localRowsToPush = (localRows as unknown as UserRecord[]).filter(
           (u) =>
             Boolean(u.email) &&
-            u.email.trim().toLowerCase() !== 'local@libertybag.app'
+            u.email.trim().toLowerCase() !== 'local@libertybag.app' &&
+            (userEmail ? u.email.trim().toLowerCase() === userEmail : true)
         ) as unknown as BaseEntity[];
+      } else if (name === 'spaces') {
+        localRowsToPush = localRows.filter((s) => allowedSpaceIds.includes(s.id));
+      } else if (name === 'space_members') {
+        localRowsToPush = localRows.filter((m) =>
+          allowedSpaceIds.includes((m as unknown as { spaceId: string }).spaceId)
+        );
+      } else {
+        // accounts, categories, transactions, recurrences, budgets, savings_goals, goal_movements, trips, trip_items
+        localRowsToPush = localRows.filter((r) =>
+          allowedSpaceIds.includes((r as unknown as { spaceId: string }).spaceId)
+        );
       }
 
-      // Nunca envia as 17 categorias padrão estáticas (apenas categorias criadas pela pessoa)
+      // Nunca envia as 17 categorias padrão estáticas
       if (name === 'categories') {
-        localRows = localRows.filter((c) => !DEFAULT_CATEGORY_IDS.has(c.id));
+        localRowsToPush = localRowsToPush.filter((c) => !DEFAULT_CATEGORY_IDS.has(c.id));
       }
 
-      // Não envia a carteira/espaço padrão vazio enquanto o usuário ainda não criou lançamentos/metas/espaços compartilhados
+      // Não envia a carteira/espaço padrão vazio se não há dados reais
       if (name === 'accounts' && !hasUserCreatedData) {
-        localRows = localRows.filter((a) => a.id !== DEFAULT_ACCOUNT_ID);
+        localRowsToPush = localRowsToPush.filter((a) => a.id !== DEFAULT_ACCOUNT_ID);
       }
       if (name === 'spaces' && !hasUserCreatedData) {
-        localRows = localRows.filter((s) => s.id !== DEFAULT_SPACE_ID);
+        localRowsToPush = localRowsToPush.filter((s) => s.id !== DEFAULT_SPACE_ID);
       }
       if (name === 'space_members' && !hasUserCreatedData) {
-        localRows = localRows.filter((m) => m.id !== 'member-personal-default');
+        localRowsToPush = localRowsToPush.filter((m) => m.id !== 'member-personal-default');
       }
 
-      // 1. Push (Envia registros locais para o Supabase em lote via upsert)
-      if (localRows.length > 0) {
+      // 1. Push
+      if (localRowsToPush.length > 0) {
         const { error: pushError } = await supabase
           .from(name)
-          .upsert(localRows, { onConflict: 'id' });
+          .upsert(localRowsToPush, { onConflict: 'id' });
         if (!pushError) {
-          pushedCount += localRows.length;
+          pushedCount += localRowsToPush.length;
         }
       }
 
-      // 2. Pull (Busca registros da nuvem e aplica Last-Write-Wins no Dexie)
-      const { data: remoteRows, error: pullError } = await supabase.from(name).select('*');
+      // 2. Pull estritamente filtrado por espaço ou usuário (NUNCA select('*') global!)
+      let query = supabase.from(name).select('*');
+      if (name === 'users') {
+        if (userEmail) {
+          query = query.eq('email', userEmail);
+        } else {
+          query = query.eq('id', activeUserId);
+        }
+      } else if (name === 'spaces') {
+        if (allowedSpaceIds.length > 0) {
+          query = query.in('id', allowedSpaceIds);
+        } else {
+          continue;
+        }
+      } else {
+        if (allowedSpaceIds.length > 0) {
+          query = query.in('spaceId', allowedSpaceIds);
+        } else {
+          continue;
+        }
+      }
+
+      const { data: remoteRows, error: pullError } = await query;
       if (!pullError && remoteRows && remoteRows.length > 0) {
         let cleanedRemoteRows = remoteRows as BaseEntity[];
 
-        // Deduplica usuários remotos pelo e-mail se houver mais de um registro com mesmo e-mail no Supabase
         if (name === 'users') {
           const remoteUsers = remoteRows as (BaseEntity & { email?: string })[];
           const byEmail = new Map<string, BaseEntity & { email?: string }>();
@@ -286,6 +355,35 @@ export async function syncAllWithSupabase(): Promise<SyncResult> {
           await table.bulkPut(toPut);
           pulledCount += toPut.length;
         }
+      }
+    }
+
+    // 3. SEGURANÇA E ISOLAMENTO DE DISPOSITIVO:
+    // Se o aparelho contiver transações que pertencem a espaços de outra pessoa,
+    // purga-as localmente para garantir que cada usuário veja apenas seus próprios dados!
+    if (allowedSpaceIds.length > 0) {
+      const allLocalTxs = await db.transactions.toArray();
+      const foreignTxIds = allLocalTxs
+        .filter((t) => !allowedSpaceIds.includes(t.spaceId))
+        .map((t) => t.id);
+      if (foreignTxIds.length > 0) {
+        await db.transactions.bulkDelete(foreignTxIds);
+      }
+
+      const allLocalBudgets = await db.budgets.toArray();
+      const foreignBudgetIds = allLocalBudgets
+        .filter((b) => !allowedSpaceIds.includes(b.spaceId))
+        .map((b) => b.id);
+      if (foreignBudgetIds.length > 0) {
+        await db.budgets.bulkDelete(foreignBudgetIds);
+      }
+
+      const allLocalGoals = await db.savings_goals.toArray();
+      const foreignGoalIds = allLocalGoals
+        .filter((g) => !allowedSpaceIds.includes(g.spaceId))
+        .map((g) => g.id);
+      if (foreignGoalIds.length > 0) {
+        await db.savings_goals.bulkDelete(foreignGoalIds);
       }
     }
 

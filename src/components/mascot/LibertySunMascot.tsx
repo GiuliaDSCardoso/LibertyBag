@@ -58,6 +58,14 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
               stroke-linecap: round;
               stroke-linejoin: round;
             }
+            .rubber-hose-limb {
+              stroke: #121212;
+              transition: stroke 200ms ease;
+            }
+            :root.dark .rubber-hose-limb,
+            .dark .rubber-hose-limb {
+              stroke: #6B9FD8 !important;
+            }
             .rubber-body {
               transform-origin: 120px 210px;
               ${
@@ -223,27 +231,27 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
           cy="255"
           rx="52"
           ry="11"
-          fill="#0D1953"
+          fill="#0D152D"
           className="mascot-shadow opacity-60"
         />
 
         {/* Grupo com a estrutura completa e animação squash-and-stretch */}
         <g className="rubber-body">
-          {/* 2. Pernas de Mangueira (Rubber Hose) - Pretas e flexíveis */}
+          {/* 2. Pernas de Mangueira (Rubber Hose) - Pretas no claro, Azul Retrô no escuro */}
           <g id="legs">
             <path
               d="M102 165 C 95 195, 88 215, 85 235"
               fill="none"
-              stroke="#121212"
               strokeWidth="9"
               strokeLinecap="round"
+              className="rubber-hose-limb"
             />
             <path
               d="M138 165 C 145 195, 155 215, 160 235"
               fill="none"
-              stroke="#121212"
               strokeWidth="9"
               strokeLinecap="round"
+              className="rubber-hose-limb"
             />
           </g>
 
@@ -311,9 +319,9 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
                 <path
                   d="M75 125 C 50 110, 42 85, 48 65"
                   fill="none"
-                  stroke="#121212"
                   strokeWidth="8"
                   strokeLinecap="round"
+                  className="rubber-hose-limb"
                 />
                 <g transform="translate(34, 40) rotate(-15)">
                   <ellipse cx="18" cy="28" rx="8" ry="4" fill="#FFFFFF" stroke="#121212" strokeWidth="3" />
@@ -339,9 +347,9 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
                 <path
                   d="M75 125 C 45 105, 38 75, 42 50"
                   fill="none"
-                  stroke="#121212"
                   strokeWidth="8"
                   strokeLinecap="round"
+                  className="rubber-hose-limb"
                 />
                 <g transform="translate(28, 25) rotate(-25)">
                   <ellipse cx="18" cy="28" rx="8" ry="4" fill="#FFFFFF" stroke="#121212" strokeWidth="3" />
@@ -361,9 +369,9 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
                 <path
                   d="M75 125 C 50 145, 45 170, 52 195"
                   fill="none"
-                  stroke="#121212"
                   strokeWidth="8"
                   strokeLinecap="round"
+                  className="rubber-hose-limb"
                 />
                 <g transform="translate(36, 182)">
                   <ellipse cx="18" cy="12" rx="7" ry="4" fill="#FFFFFF" stroke="#121212" strokeWidth="3" />
@@ -462,7 +470,7 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
               <g>
                 <path
                   d="M78 97 C 78 88, 92 86, 110 88 C 114 97, 114 110, 108 116 C 96 122, 80 118, 78 97 Z"
-                  fill="#162573"
+                  fill="#0D152D"
                   stroke="#121212"
                   strokeWidth="4.5"
                 />
@@ -478,7 +486,7 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
               <g>
                 <path
                   d="M162 97 C 162 88, 148 86, 130 88 C 126 97, 126 110, 132 116 C 144 122, 160 118, 162 97 Z"
-                  fill="#162573"
+                  fill="#0D152D"
                   stroke="#121212"
                   strokeWidth="4.5"
                 />
@@ -502,9 +510,9 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
                 <path
                   d="M160 128 C 182 152, 164 172, 136 150"
                   fill="none"
-                  stroke="#121212"
                   strokeWidth="8.5"
                   strokeLinecap="round"
+                  className="rubber-hose-limb"
                 />
                 {/* Luva branca repousando na frente do queixo */}
                 <g transform="translate(122, 135) rotate(40)">
@@ -525,9 +533,9 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
                 <path
                   d="M165 125 C 195 105, 202 75, 198 50"
                   fill="none"
-                  stroke="#121212"
                   strokeWidth="8"
                   strokeLinecap="round"
+                  className="rubber-hose-limb"
                 />
                 <g transform="translate(186, 25) rotate(25)">
                   <ellipse cx="18" cy="28" rx="8" ry="4" fill="#FFFFFF" stroke="#121212" strokeWidth="3" />
@@ -548,9 +556,9 @@ export const LibertySunMascot: React.FC<LibertySunMascotProps> = ({
                 <path
                   d="M165 125 C 190 145, 195 170, 188 195"
                   fill="none"
-                  stroke="#121212"
                   strokeWidth="8"
                   strokeLinecap="round"
+                  className="rubber-hose-limb"
                 />
                 <g transform="translate(172, 182) scale(-1, 1)">
                   <ellipse cx="-18" cy="12" rx="7" ry="4" fill="#FFFFFF" stroke="#121212" strokeWidth="3" />

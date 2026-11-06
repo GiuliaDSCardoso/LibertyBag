@@ -31,11 +31,11 @@ export const Card: React.FC<CardProps> = ({
 
   const variantClasses: Record<NonNullable<CardProps['variant']>, string> = {
     white:
-      'bg-white dark:bg-[#192B85] text-blue-deep dark:text-cream border border-blue-sky/60 dark:border-blue-sky/20 shadow-card',
-    sky: 'bg-blue-sky/75 dark:bg-[#1E349E] text-blue-deep dark:text-cream border border-blue-royal/15',
-    royal: 'bg-blue-royal text-white shadow-soft',
-    sun: 'bg-sun/90 dark:bg-sun text-blue-deep border border-orange/30 shadow-card',
-    framed: 'bg-blue-royal p-1.5 sm:p-2 text-blue-deep shadow-soft rounded-card-lg'
+      'bg-white dark:bg-[#152144] text-blue-deep dark:text-cream border-2 border-blue-sky/70 dark:border-white/10 shadow-card hover:shadow-md transition-shadow',
+    sky: 'bg-blue-sky/40 dark:bg-[#182752] text-blue-deep dark:text-cream border-2 border-blue-royal/20 dark:border-blue-royal/35 shadow-card',
+    royal: 'bg-blue-royal text-white shadow-soft border-2 border-blue-royal-ink',
+    sun: 'bg-sun/85 dark:bg-[#18254D] text-blue-deep dark:text-[#FFFDF5] border-2 border-orange/40 dark:border-sun/50 shadow-card',
+    framed: 'bg-blue-royal p-1.5 sm:p-2 text-blue-deep shadow-soft rounded-card-lg border-2 border-blue-royal-ink'
   };
 
   const motionProps = shouldReduceMotion
@@ -60,7 +60,7 @@ export const Card: React.FC<CardProps> = ({
         onClick={onClick}
       >
         <div
-          className={`bg-cream dark:bg-blue-deep dark:text-cream rounded-[20px] p-4 sm:p-5 lg:p-6 relative overflow-hidden ${
+          className={`bg-cream dark:bg-blue-deep dark:text-cream rounded-[18px] p-4 sm:p-5 lg:p-6 relative overflow-hidden ${
             isExplicitFullHeight ? 'h-full' : ''
           }`}
         >
@@ -79,7 +79,9 @@ export const Card: React.FC<CardProps> = ({
     <motion.div
       {...motionProps}
       onClick={onClick}
-      className={`rounded-card p-4 sm:p-5 lg:p-6 relative overflow-hidden transition-colors ${
+      className={`rounded-card p-5 sm:p-6 lg:p-7 relative transition-all ${
+        withFlowerWatermark ? 'overflow-hidden' : ''
+      } ${
         onClick ? 'cursor-pointer hover-lift' : ''
       } ${variantClasses[variant]} ${className}`}
     >

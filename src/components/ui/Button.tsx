@@ -27,23 +27,24 @@ export const Button: React.FC<ButtonProps> = ({
     primary:
       'bg-blue-royal hover:bg-blue-deep active:scale-[0.98] text-white shadow-soft font-bold',
     secondary:
-      'bg-blue-sky/85 hover:bg-blue-sky active:scale-[0.98] text-blue-deep dark:bg-[#2339A8] dark:text-white font-bold',
+      'bg-blue-sky/85 hover:bg-blue-sky active:scale-[0.98] text-blue-deep dark:bg-[#152144] dark:text-cream dark:border dark:border-white/20 font-bold',
     danger:
       'bg-red-soft hover:opacity-95 active:scale-[0.98] text-white font-bold shadow-sm',
-    sun: 'bg-sun hover:bg-orange/80 active:scale-[0.98] text-blue-deep font-bold shadow-sm',
+    sun:
+      'bg-sun hover:bg-orange/80 active:scale-[0.98] text-blue-deep font-bold shadow-sm',
     ghost:
       'bg-transparent hover:bg-blue-sky/30 active:scale-[0.98] text-blue-royal dark:text-blue-sky font-bold border border-blue-royal/25 dark:border-blue-sky/30'
   };
 
   const sizeStyles =
     size === 'lg'
-      ? 'min-h-[48px] sm:min-h-[56px] px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-lg rounded-pill gap-2.5 sm:gap-3'
-      : 'min-h-[40px] sm:min-h-[50px] px-3.5 sm:px-5 py-2 text-xs sm:text-base rounded-pill gap-2 sm:gap-3';
+      ? 'min-h-[50px] sm:min-h-[56px] px-6 sm:px-8 py-3 text-sm sm:text-base rounded-pill gap-2.5 sm:gap-3'
+      : 'min-h-[44px] sm:min-h-[48px] px-4.5 sm:px-6 py-2.5 text-xs sm:text-sm rounded-pill gap-2 sm:gap-2.5';
 
   return (
     <button
       data-variant={variant}
-      className={`inline-flex items-center justify-center gap-3 whitespace-nowrap shrink-0 transition-all hover-lift disabled:opacity-50 disabled:pointer-events-none ${variantStyles[variant]} ${sizeStyles} ${
+      className={`inline-flex items-center justify-center whitespace-nowrap shrink-0 transition-all hover-lift disabled:opacity-50 disabled:pointer-events-none tracking-wide ${variantStyles[variant]} ${sizeStyles} ${
         fullWidth ? 'w-full' : ''
       } ${className}`}
       {...props}

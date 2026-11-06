@@ -54,7 +54,7 @@ export const PwaInstallBanner: React.FC = () => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20, scale: 0.98 }}
           transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:w-[420px] z-40 bg-white dark:bg-[#162573] text-blue-deep dark:text-cream rounded-2xl border-2 border-blue-royal/30 shadow-soft p-3.5 sm:p-4 backdrop-blur-md"
+          className="fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:w-[420px] z-40 bg-white dark:bg-[#152144] text-blue-deep dark:text-cream rounded-2xl border-2 border-blue-royal/30 shadow-soft p-3.5 sm:p-4 backdrop-blur-md"
           role="region"
           aria-label="Instalação do aplicativo LibertyBag"
         >
@@ -136,7 +136,7 @@ export const PwaInstallBanner: React.FC = () => {
         }
       >
         <div className="space-y-4 text-blue-deep dark:text-cream">
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky/60 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-sky/60 dark:bg-blue-royal text-blue-royal dark:text-sun flex items-center justify-center shrink-0 font-bold text-sm">
               1
             </div>
@@ -148,7 +148,7 @@ export const PwaInstallBanner: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky/60 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-sky/60 dark:bg-blue-royal text-blue-royal dark:text-sun flex items-center justify-center shrink-0 font-bold text-sm">
               2
             </div>
@@ -160,7 +160,7 @@ export const PwaInstallBanner: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#192B85] border border-blue-sky/60 flex items-start gap-3">
+          <div className="p-3.5 rounded-2xl bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-blue-sky/60 dark:bg-blue-royal text-blue-royal dark:text-sun flex items-center justify-center shrink-0 font-bold text-sm">
               3
             </div>

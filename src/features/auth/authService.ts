@@ -1,7 +1,13 @@
-import { db } from '../../db/dexie';
-import { DEFAULT_USER_ID } from '../../db/seed';
+import { db, type CategoryRecord } from '../../db/dexie';
+import {
+  DEFAULT_ACCOUNT_ID,
+  DEFAULT_CATEGORIES_SEED,
+  DEFAULT_SPACE_ID,
+  DEFAULT_USER_ID
+} from '../../db/seed';
 import { getSupabaseClient } from '../../lib/supabase';
 import { syncAllWithSupabase } from '../sync/syncService';
+import emailjs from '@emailjs/browser';
 
 export const EMAILJS_DEFAULT_SERVICE_ID =
   (import.meta.env.VITE_EMAILJS_SERVICE_ID as string | undefined)?.trim() ||
@@ -483,9 +489,31 @@ export async function checkUserExistsByEmail(email: string): Promise<{
 }
 
 /**
+ * Monta o texto puro (plain text) do e-mail de confirmação do LibertyBag.
+ * Essencial para evitar que filtros anti-spam classifiquem a mensagem como lixo (SpamAssassin MIME_HTML_ONLY).
+ */
+export function buildStyledVerificationEmailPlainText(params: {
+  toName: string;
+  code: string;
+  confirmLink: string;
+}): string {
+  return `Olá, ${params.toName}!
+
+Seu código de acesso ao LibertyBag é: ${params.code}
+
+Você também pode confirmar diretamente clicando neste link:
+${params.confirmLink}
+
+Este código é válido por 15 minutos.
+Se você não solicitou este acesso, ignore esta mensagem com segurança.
+
+LibertyBag • Gestão Financeira
+https://libertybag.vercel.app`;
+}
+
+/**
  * Monta o HTML completo estilizado do e-mail de confirmação do LibertyBag
- * (com o código de 6 dígitos e o botão de confirmação com 1 toque).
- * Pode ser aberto gratuitamente em uma nova aba HTML ou enviado via Google Apps Script.
+ * com preheader, boas práticas contra filtros de spam e rodapé CAN-SPAM.
  */
 export function buildStyledVerificationEmailHTML(params: {
   toName: string;
@@ -498,59 +526,63 @@ export function buildStyledVerificationEmailHTML(params: {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Seu código de acesso ao LibertyBag: ${params.code}</title>
+  <title>LibertyBag - Código de confirmação: ${params.code}</title>
 </head>
-<body style="margin:0; padding:0; background-color:#FBF6EA; font-family:'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#12206B;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FBF6EA; padding:32px 16px;">
+<body style="margin:0; padding:0; background-color:#FBF6EA; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#12206B;">
+  <!-- Preheader oculto para visualização rápida sem cair no spam -->
+  <div style="display:none; max-height:0px; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#FBF6EA;">
+    Seu código de acesso do LibertyBag é ${params.code}. Válido por 15 minutos.
+  </div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#FBF6EA; padding:24px 12px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px; background-color:#FFFFFF; border:3px solid #2346C8; border-radius:28px; overflow:hidden; box-shadow:0 12px 32px rgba(18,32,107,0.10);">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:500px; background-color:#FFFFFF; border:2px solid #2346C8; border-radius:24px; overflow:hidden; box-shadow:0 8px 24px rgba(18,32,107,0.08);">
           <tr>
-            <td style="background-color:#2346C8; padding:28px 32px; text-align:center;">
-              <div style="display:inline-block; background-color:#F8D56B; color:#12206B; font-weight:800; font-size:13px; padding:6px 16px; border-radius:999px; margin-bottom:12px;">
-                ✿ LIBERTYBAG • FINANÇAS EM FAMÍLIA
+            <td style="background-color:#2346C8; padding:24px 28px; text-align:center;">
+              <div style="display:inline-block; background-color:#F8D56B; color:#12206B; font-weight:800; font-size:12px; padding:4px 14px; border-radius:999px; margin-bottom:10px;">
+                LIBERTYBAG • GESTÃO FINANCEIRA
               </div>
-              <h1 style="margin:0; font-family:Georgia, 'Times New Roman', serif; font-style:italic; font-size:30px; color:#FFFFFF; letter-spacing:-0.5px;">
-                Confirme seu acesso
+              <h1 style="margin:0; font-family:Georgia, serif; font-size:26px; color:#FFFFFF; font-weight:700;">
+                Confirmação de Acesso
               </h1>
             </td>
           </tr>
           <tr>
-            <td style="padding:32px 28px; text-align:center;">
-              <p style="margin:0 0 12px; font-size:18px; font-weight:700; color:#12206B;">
-                Olá, ${params.toName}! ☀️
+            <td style="padding:28px 24px; text-align:center;">
+              <p style="margin:0 0 10px; font-size:17px; font-weight:700; color:#12206B;">
+                Olá, ${params.toName}!
               </p>
-              <p style="margin:0 0 8px; font-size:13px; font-weight:700; color:#52608F;">
-                Para: ${params.toEmail}
+              <p style="margin:0 0 20px; font-size:14px; line-height:1.6; color:#12206B;">
+                Você solicitou a confirmação da sua conta no <strong>LibertyBag</strong>. Digite o código de 6 números abaixo para continuar:
               </p>
-              <p style="margin:0 0 24px; font-size:15px; line-height:1.6; color:#12206B;">
-                Aqui está o seu código de segurança de <strong>6 números</strong> para entrar no <strong>LibertyBag</strong>:
-              </p>
-              <div style="background-color:#FBF6EA; border:2px dashed #2346C8; border-radius:22px; padding:22px 16px; margin:0 auto 24px; max-width:320px;">
-                <div style="font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; color:#2346C8; margin-bottom:8px;">
-                  SEU CÓDIGO DE 6 DÍGITOS
+              <div style="background-color:#FBF6EA; border:2px dashed #2346C8; border-radius:18px; padding:18px 12px; margin:0 auto 20px; max-width:280px;">
+                <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#2346C8; margin-bottom:6px;">
+                  Código de verificação
                 </div>
-                <div style="font-size:38px; font-weight:800; letter-spacing:10px; color:#12206B; font-family:'Courier New', Courier, monospace;">
+                <div style="font-size:36px; font-weight:800; letter-spacing:8px; color:#12206B; font-family:Consolas, 'Courier New', monospace;">
                   ${params.code}
                 </div>
               </div>
-              <p style="margin:0 0 18px; font-size:14px; line-height:1.5; color:#12206B;">
-                Ou, se preferir entrar com apenas <strong>1 toque</strong>, clique no botão azul abaixo:
+              <p style="margin:0 0 16px; font-size:13px; line-height:1.5; color:#52608F;">
+                Ou, se preferir entrar diretamente com 1 clique:
               </p>
-              <div style="margin:0 0 26px;">
-                <a href="${params.confirmLink}" style="display:inline-block; background-color:#2346C8; color:#FFFFFF; text-decoration:none; font-weight:800; font-size:16px; padding:16px 32px; border-radius:999px; box-shadow:0 6px 16px rgba(35,70,200,0.28);">
-                  Confirmar meu acesso agora →
+              <div style="margin:0 0 24px;">
+                <a href="${params.confirmLink}" style="display:inline-block; background-color:#2346C8; color:#FFFFFF; text-decoration:none; font-weight:700; font-size:15px; padding:14px 28px; border-radius:999px;">
+                  Entrar no LibertyBag agora →
                 </a>
               </div>
-              <hr style="border:none; border-top:1px solid #BFD4F2; margin:24px 0;" />
-              <p style="margin:0; font-size:12px; line-height:1.5; color:#52608F;">
-                Este código vale por <strong>15 minutos</strong>.
+              <hr style="border:none; border-top:1px solid #E2E8F0; margin:20px 0;" />
+              <p style="margin:0 0 6px; font-size:12px; line-height:1.4; color:#64748B;">
+                Este código expira em <strong>15 minutos</strong>.
+              </p>
+              <p style="margin:0; font-size:11px; line-height:1.4; color:#94A3B8;">
+                Se você não fez esta solicitação, nenhuma ação é necessária e você pode desconsiderar este e-mail com segurança.
               </p>
             </td>
           </tr>
           <tr>
-            <td style="background-color:#BFD4F2; padding:16px 24px; text-align:center; font-size:12px; font-weight:700; color:#12206B;">
-              LibertyBag • Feito by Giulia Cardoso ✿
+            <td style="background-color:#F1F5F9; padding:14px 20px; text-align:center; font-size:11px; color:#64748B;">
+              LibertyBag • Aplicativo de Organização Financeira • <a href="https://libertybag.vercel.app" style="color:#2346C8; text-decoration:none;">libertybag.vercel.app</a>
             </td>
           </tr>
         </table>
@@ -563,8 +595,9 @@ export function buildStyledVerificationEmailHTML(params: {
 
 /**
  * Gera o código de 6 dígitos + link de confirmação, salva na tabela `auth_verifications`
- * (sem duplicar linhas em `users`) e envia o e-mail HTML estilizado via Webhook Gratuito (Google Apps Script).
- * O envio via EmailJS está pausado conforme solicitado.
+ * e envia com sistema de Alta Disponibilidade (Dual Provider):
+ * 1. Provedor Primário: Google Apps Script Webhook com corpo multipart (HTML + Texto Puro anti-spam).
+ * 2. Provedor Secundário (Fallback Automático): EmailJS caso o primário oscile ou seja bloqueado por adblockers.
  */
 export async function sendVerificationCodeEmail(input: {
   email: string;
@@ -608,7 +641,7 @@ export async function sendVerificationCodeEmail(input: {
     };
   }
 
-  // Salva na tabela auth_verifications e atualiza o usuário único existente em users (sem duplicar!)
+  // 1. Salva na tabela auth_verifications e atualiza o usuário no Supabase com isolamento de tenant
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
@@ -625,7 +658,7 @@ export async function sendVerificationCodeEmail(input: {
       );
 
       const existing = await checkUserExistsByEmail(cleanEmail);
-      const canonicalUserId = existing.userId || DEFAULT_USER_ID;
+      const { userId: canonicalUserId } = resolveUserEnvironment(cleanEmail, existing.userId);
 
       await supabase.from('users').upsert(
         {
@@ -646,68 +679,236 @@ export async function sendVerificationCodeEmail(input: {
     }
   }
 
-  // Envio gratuito do E-mail HTML via Google Apps Script (VITE_FREE_EMAIL_WEBHOOK_URL)
-  const freeWebhookUrl = FREE_EMAIL_DEFAULT_WEBHOOK_URL;
+  const plainText = buildStyledVerificationEmailPlainText({
+    toName: cleanName,
+    code,
+    confirmLink
+  });
 
+  const htmlBody = buildStyledVerificationEmailHTML({
+    toName: cleanName,
+    toEmail: cleanEmail,
+    code,
+    confirmLink
+  });
+
+  let webhookSent = false;
+  let webhookError = '';
+
+  // 2. Provedor Primário: Webhook Google Apps Script
+  const freeWebhookUrl = FREE_EMAIL_DEFAULT_WEBHOOK_URL;
   if (freeWebhookUrl && freeWebhookUrl.startsWith('http')) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+
       await fetch(freeWebhookUrl, {
         method: 'POST',
         mode: 'no-cors',
+        signal: controller.signal,
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           to_email: cleanEmail,
           to_name: cleanName,
           verification_code: code,
           confirm_link: confirmLink,
-          html_body: buildStyledVerificationEmailHTML({
-            toName: cleanName,
-            toEmail: cleanEmail,
-            code,
-            confirmLink
-          })
+          subject: `LibertyBag: seu código de verificação é ${code}`,
+          sender_name: 'LibertyBag',
+          plain_text: plainText,
+          html_body: htmlBody
         })
       });
-      return {
-        code,
-        confirmLink,
-        emailSent: true
-      };
+
+      clearTimeout(timeoutId);
+      webhookSent = true;
     } catch (err: unknown) {
-      const detail =
-        err instanceof Error ? err.message : 'Não foi possível conectar ao serviço de e-mail HTML.';
-      return {
-        code,
-        confirmLink,
-        emailSent: false,
-        errorDetail: detail
-      };
+      webhookError =
+        err instanceof Error ? err.message : 'Falha na conexão com o serviço primário.';
     }
   }
 
-  /*
-   * Envio pelo EmailJS pausado para testar exclusivamente o envio com E-mail HTML gratuito:
-   *
-   * await emailjs.send(
-   *   EMAILJS_DEFAULT_SERVICE_ID,
-   *   EMAILJS_DEFAULT_TEMPLATE_ID,
-   *   {
-   *     to_email: cleanEmail,
-   *     to_name: cleanName,
-   *     verification_code: code,
-   *     confirm_link: confirmLink,
-   *     app_name: 'LibertyBag'
-   *   },
-   *   { publicKey: EMAILJS_DEFAULT_PUBLIC_KEY }
-   * );
-   */
+  if (webhookSent) {
+    return {
+      code,
+      confirmLink,
+      emailSent: true
+    };
+  }
+
+  // 3. Provedor Secundário (Fallback Automático): EmailJS
+  // Se o webhook falhar, sofrer timeout ou for bloqueado por extensões no navegador do usuário
+  try {
+    await emailjs.send(
+      EMAILJS_DEFAULT_SERVICE_ID,
+      EMAILJS_DEFAULT_TEMPLATE_ID,
+      {
+        to_email: cleanEmail,
+        to_name: cleanName,
+        verification_code: code,
+        confirm_link: confirmLink,
+        app_name: 'LibertyBag'
+      },
+      { publicKey: EMAILJS_DEFAULT_PUBLIC_KEY }
+    );
+
+    return {
+      code,
+      confirmLink,
+      emailSent: true
+    };
+  } catch (emailJsErr: unknown) {
+    const emailJsDetail =
+      emailJsErr instanceof Error ? emailJsErr.message : 'Falha no serviço alternativo.';
+    return {
+      code,
+      confirmLink,
+      emailSent: false,
+      errorDetail: webhookError || emailJsDetail
+    };
+  }
+}
+
+/**
+ * Resolve o ambiente determinístico e seguro de isolamento do usuário (userId e spaceId).
+ * Garante que a Giulia e o usuário padrão usem DEFAULT_USER_ID e DEFAULT_SPACE_ID com todos
+ * os dados originais preservados, enquanto novos usuários recebem um ID e um espaço próprios.
+ */
+export function resolveUserEnvironment(
+  cleanEmail: string,
+  existingUserId?: string
+): { userId: string; spaceId: string } {
+  const normEmail = cleanEmail.trim().toLowerCase();
+  if (
+    normEmail.includes('giuli') ||
+    normEmail === 'local@libertybag.app' ||
+    existingUserId === DEFAULT_USER_ID
+  ) {
+    return {
+      userId: existingUserId || DEFAULT_USER_ID,
+      spaceId: DEFAULT_SPACE_ID
+    };
+  }
+
+  if (existingUserId && existingUserId !== DEFAULT_USER_ID) {
+    return {
+      userId: existingUserId,
+      spaceId: `space-personal-${existingUserId}`
+    };
+  }
+
+  // Gera um ID determinístico e limpo baseado no e-mail
+  let hash = 0;
+  for (let i = 0; i < normEmail.length; i++) {
+    hash = (hash << 5) - hash + normEmail.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(8, '0');
+  const slug = normEmail.split('@')[0].replace(/[^a-z0-9]/gi, '').slice(0, 10) || 'user';
+  const generatedId = `user-${slug}-${hex}`;
 
   return {
-    code,
-    confirmLink,
-    emailSent: false,
-    errorDetail: 'URL do webhook de e-mail HTML não configurada.'
+    userId: generatedId,
+    spaceId: `space-personal-${generatedId}`
   };
+}
+
+/**
+ * Prepara o banco local (Dexie) e garante o isolamento de dados do usuário:
+ * Cria/atualiza o usuário, espaço pessoal, carteira principal e categorias.
+ * Se for uma nova conta neste aparelho, purga lançamentos e metas que não pertencem ao espaço do usuário.
+ */
+export async function setupUserLocalWorkspace(
+  userId: string,
+  spaceId: string,
+  name: string,
+  email: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const cleanEmail = email.trim().toLowerCase();
+
+  // 1. Atualiza registro do usuário local
+  await db.users.put({
+    id: userId,
+    name,
+    email: cleanEmail,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null
+  });
+
+  // 2. Garante o espaço pessoal do usuário
+  const existingSpace = await db.spaces.get(spaceId);
+  if (!existingSpace) {
+    await db.spaces.put({
+      id: spaceId,
+      name: 'Meu Espaço Pessoal',
+      type: 'pessoal',
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    });
+  }
+
+  // 3. Garante o vínculo do membro com o espaço
+  const memberId = `member-${spaceId}-${userId}`;
+  const existingMember = await db.space_members.get(memberId);
+  if (!existingMember) {
+    await db.space_members.put({
+      id: memberId,
+      spaceId,
+      userId,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    });
+  }
+
+  // 4. Garante a carteira / conta principal para o espaço
+  const accountId =
+    spaceId === DEFAULT_SPACE_ID ? DEFAULT_ACCOUNT_ID : `account-${spaceId}-wallet`;
+  const existingAccount = await db.accounts.get(accountId);
+  if (!existingAccount) {
+    await db.accounts.put({
+      id: accountId,
+      userId,
+      spaceId,
+      name: 'Carteira Principal',
+      type: 'carteira',
+      isDefault: true,
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    });
+  }
+
+  // 5. Se for um usuário novo (diferente do padrão legado), garante categorias no seu espaço
+  if (spaceId !== DEFAULT_SPACE_ID) {
+    const userCatCount = await db.categories.where('spaceId').equals(spaceId).count();
+    if (userCatCount === 0) {
+      const categoriesToInsert: CategoryRecord[] = DEFAULT_CATEGORIES_SEED.map((item, idx) => ({
+        id: `cat-${spaceId}-${item.id.replace('cat-', '')}`,
+        userId,
+        spaceId,
+        name: item.name,
+        icon: item.icon,
+        color: item.color,
+        type: item.type,
+        sortOrder: idx + 1,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null
+      }));
+      await db.categories.bulkPut(categoriesToInsert);
+    }
+
+    // Limpa do aparelho qualquer dado de outras contas que possam ter ficado no IndexedDB
+    await db.transactions.where('spaceId').notEqual(spaceId).delete();
+    await db.budgets.where('spaceId').notEqual(spaceId).delete();
+    await db.savings_goals.where('spaceId').notEqual(spaceId).delete();
+    await db.recurrences.where('spaceId').notEqual(spaceId).delete();
+    await db.trips.where('spaceId').notEqual(spaceId).delete();
+    await db.trip_items.where('spaceId').notEqual(spaceId).delete();
+  }
 }
 
 /**
@@ -716,7 +917,13 @@ export async function sendVerificationCodeEmail(input: {
 export async function verifySixDigitCode(
   email: string,
   inputCode: string
-): Promise<{ valid: boolean; message: string; name?: string }> {
+): Promise<{
+  valid: boolean;
+  message: string;
+  name?: string;
+  userId?: string;
+  spaceId?: string;
+}> {
   const cleanEmail = email.trim().toLowerCase();
   const cleanCode = inputCode.replace(/\D/g, '').trim();
 
@@ -739,11 +946,13 @@ export async function verifySixDigitCode(
     }
 
     clearPendingVerification();
-    await markUserVerifiedInDatabases(cleanEmail, pending.name, cleanCode);
+    const verifiedEnv = await markUserVerifiedInDatabases(cleanEmail, pending.name, cleanCode);
     return {
       valid: true,
       message: 'Acesso confirmado com sucesso!',
-      name: pending.name
+      name: pending.name,
+      userId: verifiedEnv.userId,
+      spaceId: verifiedEnv.spaceId
     };
   }
 
@@ -771,7 +980,7 @@ export async function verifySixDigitCode(
             .eq('email', cleanEmail);
 
           clearPendingVerification();
-          await markUserVerifiedInDatabases(
+          const verifiedEnv = await markUserVerifiedInDatabases(
             cleanEmail,
             String(data.name || cleanEmail.split('@')[0]),
             cleanCode
@@ -779,7 +988,9 @@ export async function verifySixDigitCode(
           return {
             valid: true,
             message: 'Acesso confirmado com sucesso!',
-            name: String(data.name || cleanEmail.split('@')[0])
+            name: String(data.name || cleanEmail.split('@')[0]),
+            userId: verifiedEnv.userId,
+            spaceId: verifiedEnv.spaceId
           };
         }
       } catch {
@@ -798,9 +1009,12 @@ async function markUserVerifiedInDatabases(
   email: string,
   name: string,
   code: string
-): Promise<void> {
+): Promise<{ userId: string; spaceId: string }> {
   const cleanEmail = email.trim().toLowerCase();
   const now = new Date().toISOString();
+
+  const existing = await checkUserExistsByEmail(cleanEmail);
+  const { userId, spaceId } = resolveUserEnvironment(cleanEmail, existing.userId);
 
   const existingLocalAcc = memoryAccounts.get(cleanEmail);
   if (existingLocalAcc) {
@@ -811,39 +1025,14 @@ async function markUserVerifiedInDatabases(
     });
   }
 
-  // Garante um único usuário local em db.users sem duplicações
-  const allLocalUsers = await db.users.toArray();
-  const extraIds = allLocalUsers
-    .filter((u) => u.id !== DEFAULT_USER_ID)
-    .map((u) => u.id);
-  if (extraIds.length > 0) {
-    await db.users.bulkDelete(extraIds);
-  }
-
-  await db.users.put({
-    id: DEFAULT_USER_ID,
-    name,
-    email: cleanEmail,
-    createdAt: now,
-    updatedAt: now,
-    deletedAt: null
-  });
+  await setupUserLocalWorkspace(userId, spaceId, name, cleanEmail);
 
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const existing = await checkUserExistsByEmail(cleanEmail);
-      const canonicalId = existing.userId || DEFAULT_USER_ID;
-
-      // Remove qualquer linha órfã/duplicada com outro ID para o mesmo e-mail ou placeholder
-      await supabase
-        .from('users')
-        .delete()
-        .eq('email', 'local@libertybag.app');
-
       await supabase.from('users').upsert(
         {
-          id: canonicalId,
+          id: userId,
           name,
           email: cleanEmail,
           emailVerified: true,
@@ -868,6 +1057,8 @@ async function markUserVerifiedInDatabases(
       // silencioso offline
     }
   }
+
+  return { userId, spaceId };
 }
 
 // ============================================================================
@@ -895,6 +1086,7 @@ export function saveRememberedCredentials(creds: RememberedCredentials | null): 
 
 /**
  * Cadastra uma nova conta APENAS se o e-mail ainda não existir no banco (Supabase ou local).
+ * Garante criação de ID próprio e isolamento completo sem sobrescrever usuários existentes.
  */
 export async function registerUserAccount(input: {
   name: string;
@@ -904,6 +1096,8 @@ export async function registerUserAccount(input: {
   ok: boolean;
   error?: string;
   fieldErrors?: AuthFieldErrors;
+  userId?: string;
+  spaceId?: string;
 }> {
   const validation = validateAuthForm({
     mode: 'signup',
@@ -937,33 +1131,62 @@ export async function registerUserAccount(input: {
   }
 
   const passwordToken = hashPasswordToken(cleanEmail, input.password);
+  const { userId, spaceId } = resolveUserEnvironment(cleanEmail);
 
-  // 2. Se o Supabase estiver conectado, registra na tabela public.users (sem chamar /auth/v1/token)
+  // 2. Se o Supabase estiver conectado, registra na tabela public.users, spaces, space_members e accounts com IDs próprios
   if (import.meta.env.MODE !== 'test') {
     const supabase = getSupabaseClient();
     if (supabase) {
       try {
-        await db.transactions.clear();
-        await db.recurrences.clear();
-        await db.budgets.clear();
-        await db.savings_goals.clear();
-        await db.goal_movements.clear();
-        await db.trips.clear();
-        await db.trip_items.clear();
-
-        await supabase
-          .from('users')
-          .delete()
-          .eq('email', 'local@libertybag.app');
-
         await supabase.from('users').upsert(
           {
-            id: DEFAULT_USER_ID,
+            id: userId,
             authUserId: null,
             name: cleanName,
             email: cleanEmail,
             emailVerified: false,
             verificationExpiresAt: passwordToken,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null
+          },
+          { onConflict: 'id' }
+        );
+
+        await supabase.from('spaces').upsert(
+          {
+            id: spaceId,
+            name: 'Meu Espaço Pessoal',
+            type: 'pessoal',
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null
+          },
+          { onConflict: 'id' }
+        );
+
+        await supabase.from('space_members').upsert(
+          {
+            id: `member-${spaceId}-${userId}`,
+            spaceId,
+            userId,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null
+          },
+          { onConflict: 'id' }
+        );
+
+        const accountId =
+          spaceId === DEFAULT_SPACE_ID ? DEFAULT_ACCOUNT_ID : `account-${spaceId}-wallet`;
+        await supabase.from('accounts').upsert(
+          {
+            id: accountId,
+            userId,
+            spaceId,
+            name: 'Carteira Principal',
+            type: 'carteira',
+            isDefault: true,
             createdAt: now,
             updatedAt: now,
             deletedAt: null
@@ -976,6 +1199,9 @@ export async function registerUserAccount(input: {
     }
   }
 
+  // Prepara o ambiente local isolado para o novo usuário
+  await setupUserLocalWorkspace(userId, spaceId, cleanName, cleanEmail);
+
   // 3. Salva conta localmente em memória aguardando a primeira confirmação do código de 6 dígitos no dispositivo
   saveLocalAccount({
     email: cleanEmail,
@@ -985,7 +1211,7 @@ export async function registerUserAccount(input: {
     verifiedOnDevice: false
   });
 
-  return { ok: true };
+  return { ok: true, userId, spaceId };
 }
 
 /**
@@ -999,6 +1225,8 @@ export async function signInUserAccount(input: {
 }): Promise<{
   ok: boolean;
   name?: string;
+  userId?: string;
+  spaceId?: string;
   requiresDeviceVerification?: boolean;
   isFirstLogin?: boolean;
   error?: string;
@@ -1076,9 +1304,17 @@ export async function signInUserAccount(input: {
   const alreadyVerifiedOnDevice = await isEmailVerifiedOnThisDevice(cleanEmail);
   const isFirstLogin = existing.emailVerified === false && !alreadyVerifiedOnDevice;
 
+  const { userId, spaceId } = resolveUserEnvironment(cleanEmail, existing.userId);
+  const resolvedName = existing.name || localAcc?.name || cleanEmail.split('@')[0];
+
+  // Prepara o ambiente local isolado para o usuário que fez login
+  await setupUserLocalWorkspace(userId, spaceId, resolvedName, cleanEmail);
+
   return {
     ok: true,
-    name: existing.name || localAcc?.name || cleanEmail.split('@')[0],
+    name: resolvedName,
+    userId,
+    spaceId,
     requiresDeviceVerification: !alreadyVerifiedOnDevice,
     isFirstLogin
   };

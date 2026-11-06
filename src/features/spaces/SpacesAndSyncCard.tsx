@@ -138,50 +138,50 @@ export const SpacesAndSyncCard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* 1. Card de Espaços (Pessoal + Compartilhado entre você, sua mãe e seu namorado) */}
-      <Card variant="white" className="space-y-3.5">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sun text-blue-deep flex items-center justify-center shrink-0">
-            <Users size={20} />
+      <Card variant="white" className="space-y-5 p-6 sm:p-7">
+        <div className="flex items-start gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FEE180] to-[#F9B249] text-blue-deep flex items-center justify-center shrink-0 shadow-xs border border-white/40">
+            <Users size={22} />
           </div>
-          <div>
+          <div className="space-y-1">
             <h2 className="title-section">Espaços da Família</h2>
-            <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+            <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed">
               Alterne entre o seu dinheiro pessoal e os espaços compartilhados, ou exclua um espaço.
             </p>
           </div>
         </div>
 
         {/* Lista de Espaços disponíveis */}
-        <div className="space-y-2 pt-0.5">
+        <div className="space-y-3 pt-1">
           {spaces.map((space) => {
             const isActive = space.id === activeSpaceId;
             return (
               <div
                 key={space.id}
-                className={`p-3 rounded-xl border-2 flex flex-wrap items-center justify-between gap-2.5 transition-all ${
+                className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex flex-wrap items-center justify-between gap-4 shadow-xs ${
                   isActive
-                    ? 'bg-blue-royal text-white border-blue-royal shadow-xs'
-                    : 'bg-cream dark:bg-blue-deep border-blue-sky'
+                    ? 'bg-blue-royal text-white border-blue-royal shadow-soft'
+                    : 'bg-cream dark:bg-[#0D152D] text-blue-deep dark:text-cream border-blue-sky/70 dark:border-white/10'
                 }`}
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm sm:text-base truncate">{space.name}</span>
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-bold text-base sm:text-lg truncate">{space.name}</span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-pill font-bold ${
+                      className={`text-xs px-2.5 py-0.5 rounded-pill font-bold ${
                         isActive
-                          ? 'bg-sun text-blue-deep'
-                          : 'bg-blue-sky/70 text-blue-deep dark:bg-[#192B85] dark:text-cream'
+                          ? 'bg-sun text-blue-deep shadow-xs'
+                          : 'bg-blue-sky/50 text-blue-deep dark:bg-white/10 dark:text-cream border border-blue-sky/40 dark:border-white/10'
                       }`}
                     >
                       {space.type === 'compartilhado' ? 'Compartilhado' : 'Pessoal'}
                     </span>
                   </div>
                   {space.inviteCode && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs opacity-90">
+                    <div className="flex items-center gap-2 text-xs opacity-90">
+                      <span>
                         Código: <strong>{space.inviteCode}</strong>
                       </span>
                       <button
@@ -192,7 +192,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                             showUndoToast(`Código ${space.inviteCode} copiado!`, async () => {});
                           }
                         }}
-                        className="inline-flex items-center gap-1 text-xs underline font-bold"
+                        className="inline-flex items-center gap-1 font-bold underline hover:opacity-80 transition-opacity"
                       >
                         <Copy size={13} />
                         <span>Copiar</span>
@@ -201,10 +201,10 @@ export const SpacesAndSyncCard: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5 shrink-0">
                   {isActive ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-pill bg-white/20">
-                      <Check size={14} />
+                    <span className="inline-flex items-center gap-1.5 text-xs font-extrabold px-3 py-1.5 rounded-pill bg-white/20 text-white border border-white/30 shadow-xs">
+                      <Check size={14} strokeWidth={3} />
                       <span>Em uso</span>
                     </span>
                   ) : (
@@ -214,7 +214,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                         setActiveSpaceId(space.id);
                         showUndoToast(`Mudou para "${space.name}"`, async () => {});
                       }}
-                      className="min-h-[38px] px-3.5 rounded-pill bg-blue-royal text-white text-xs font-bold"
+                      className="min-h-[40px] px-3.5 rounded-pill text-xs font-bold inline-flex items-center gap-1.5 text-white bg-blue-royal hover:bg-blue-deep transition-all shadow-xs"
                     >
                       Abrir
                     </button>
@@ -225,11 +225,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                     onClick={() => setSpaceToDelete(space)}
                     aria-label={`Apagar espaço ${space.name}`}
                     title={`Apagar espaço ${space.name}`}
-                    className={`min-h-[38px] px-2.5 rounded-pill text-xs font-bold inline-flex items-center gap-1 transition-colors ${
-                      isActive
-                        ? 'bg-red-soft text-white hover:bg-red-soft/90'
-                        : 'bg-red-soft/15 text-red-soft border border-red-soft/35 hover:bg-red-soft hover:text-white'
-                    }`}
+                    className="min-h-[40px] px-3.5 rounded-pill text-xs font-bold inline-flex items-center gap-1.5 text-white bg-red-soft hover:opacity-90 transition-all shadow-xs"
                   >
                     <Trash2 size={14} />
                     <span>Apagar</span>
@@ -240,7 +236,7 @@ export const SpacesAndSyncCard: React.FC = () => {
           })}
         </div>
 
-        <div className="flex flex-wrap gap-2.5 pt-1">
+        <div className="flex flex-wrap items-center gap-3.5 pt-4 border-t border-blue-sky/40 dark:border-white/10">
           <Button
             variant="primary"
             size="md"
@@ -267,19 +263,19 @@ export const SpacesAndSyncCard: React.FC = () => {
       </Card>
 
       {/* 2. Card de Sincronização Segura com a Nuvem */}
-      <Card variant="white" className="space-y-3.5">
+      <Card variant="white" className="space-y-6 p-6 sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-royal text-white flex items-center justify-center shrink-0">
               <Cloud size={20} />
             </div>
-            <div>
+            <div className="space-y-1">
               <h2 className="title-section">Nuvem e Sincronização</h2>
-              <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85 mt-0.5">
+              <p className="text-xs sm:text-sm text-blue-deep/85 dark:text-cream/85">
                 {syncStatusText}
               </p>
               {userEmail && (
-                <p className="text-xs font-bold text-green-ok mt-0.5">
+                <p className="text-xs font-bold text-green-ok">
                   Conta: {userName || 'Família'} ({userEmail})
                 </p>
               )}
@@ -297,18 +293,20 @@ export const SpacesAndSyncCard: React.FC = () => {
           </span>
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          fullWidth
-          onClick={handleSyncNow}
-          disabled={isSyncing}
-        >
-          <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
-          <span>
-            {isSyncing ? 'Sincronizando...' : 'Sincronizar agora com a nuvem'}
-          </span>
-        </Button>
+        <div className="pt-2">
+          <Button
+            variant="primary"
+            size="md"
+            fullWidth
+            onClick={handleSyncNow}
+            disabled={isSyncing}
+          >
+            <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
+            <span>
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar agora com a nuvem'}
+            </span>
+          </Button>
+        </div>
       </Card>
 
       {/* Modal: Criar Novo Espaço */}
@@ -344,7 +342,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                 if (spaceNameError) setSpaceNameError(null);
               }}
               placeholder="Ex.: Casa com a Mamãe, Eu e Meu Amor..."
-              className={`w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 font-bold ${
+              className={`w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 font-bold ${
                 spaceNameError ? 'border-red-soft' : 'border-blue-sky'
               }`}
             />
@@ -365,7 +363,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                 className={`min-h-[50px] rounded-xl font-bold text-xs px-3 border-2 ${
                   newSpaceType === 'compartilhado'
                     ? 'bg-blue-royal text-white border-blue-royal'
-                    : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                    : 'bg-white dark:bg-[#152144] border-blue-sky'
                 }`}
               >
                 Compartilhado (gera código de convite)
@@ -376,7 +374,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                 className={`min-h-[50px] rounded-xl font-bold text-xs px-3 border-2 ${
                   newSpaceType === 'pessoal'
                     ? 'bg-blue-royal text-white border-blue-royal'
-                    : 'bg-white dark:bg-[#192B85] border-blue-sky'
+                    : 'bg-white dark:bg-[#152144] border-blue-sky'
                 }`}
               >
                 Pessoal (só meu)
@@ -425,7 +423,7 @@ export const SpacesAndSyncCard: React.FC = () => {
                 if (joinError) setJoinError(null);
               }}
               placeholder="Ex.: CASA26"
-              className={`w-full min-h-[52px] px-4 rounded-xl bg-white dark:bg-[#192B85] border-2 font-extrabold text-xl uppercase tracking-widest text-center ${
+              className={`w-full min-h-[52px] px-4 rounded-xl bg-white dark:bg-[#152144] border-2 font-extrabold text-xl uppercase tracking-widest text-center ${
                 joinError ? 'border-red-soft' : 'border-blue-sky'
               }`}
             />
