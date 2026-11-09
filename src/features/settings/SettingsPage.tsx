@@ -241,7 +241,7 @@ export const SettingsPage: React.FC = () => {
                     type="button"
                     onClick={() => setFontSize(opt.id)}
                     aria-pressed={fontSize === opt.id}
-                    className={`min-h-[46px] px-3 rounded-xl font-bold text-xs sm:text-sm border-2 whitespace-nowrap transition-all flex items-center justify-center ${
+                    className={`min-h-[46px] px-1 sm:px-3 rounded-xl font-bold text-xs sm:text-sm border-2 text-center transition-all flex items-center justify-center break-words ${
                       fontSize === opt.id
                         ? 'bg-blue-royal text-white border-blue-royal shadow-xs'
                         : 'bg-cream dark:bg-blue-deep border-blue-sky'

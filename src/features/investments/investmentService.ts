@@ -305,6 +305,24 @@ export const INVESTMENT_INSTITUTIONS: InvestmentInstitution[] = [
     }
   },
   {
+    id: 'bb',
+    name: 'Banco do Brasil (BB / BB DTVM)',
+    shortName: 'Banco do Brasil',
+    color: '#003DA5',
+    accentBg: '#FFFBEA',
+    description: 'Maior banco público do país, com fundos BB DTVM e títulos de renda fixa de alta solidez.',
+    badge: 'Solidez Centenária',
+    categoryAssets: {
+      cdb_100: 10.65,
+      cdb_115: 11.95,
+      lci_lca_90: 9.60,
+      tesouro_selic: 10.75,
+      tesouro_ipca: 10.45,
+      fii_dividendos: 9.80,
+      acoes_dividendos: 11.50
+    }
+  },
+  {
     id: 'itau',
     name: 'Itaú Unibanco (Íon)',
     shortName: 'Itaú',

@@ -79,7 +79,7 @@ export const Card: React.FC<CardProps> = ({
     <motion.div
       {...motionProps}
       onClick={onClick}
-      className={`rounded-card p-5 sm:p-6 lg:p-7 relative transition-all ${
+      className={`rounded-card p-4 sm:p-6 lg:p-7 max-w-full overflow-hidden relative transition-all ${
         withFlowerWatermark ? 'overflow-hidden' : ''
       } ${
         onClick ? 'cursor-pointer hover-lift' : ''

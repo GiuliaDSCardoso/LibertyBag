@@ -76,6 +76,19 @@ export const POPULAR_BANKS: BankConfig[] = [
     sourceNote: 'Tabela de Crédito Caixa'
   },
   {
+    id: 'bb',
+    name: 'Banco do Brasil (BB)',
+    shortName: 'Banco do Brasil',
+    color: '#003DA5',
+    accentBg: '#FFFBEA',
+    creditMonthlyRate: 3.99,
+    creditServiceFeePercent: 0,
+    pixMonthlyRate: 3.99,
+    pixServiceFeePercent: 2.99,
+    description: 'Linhas Ourocard Banco do Brasil com tarifa de conveniência de 2,99% e 3,99% a.m.',
+    sourceNote: 'Banco do Brasil - Ourocard'
+  },
+  {
     id: 'c6',
     name: 'C6 Bank',
     shortName: 'C6 Bank',

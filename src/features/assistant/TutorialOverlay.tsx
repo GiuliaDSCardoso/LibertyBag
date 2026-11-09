@@ -74,7 +74,7 @@ export const TutorialOverlay: React.FC = () => {
       role="dialog"
       aria-label="Tutorial interativo LibertyBag"
       aria-modal="true"
-      className="fixed inset-0 z-50 overflow-hidden pointer-events-none"
+      className="fixed inset-0 z-50 overflow-hidden w-full max-w-full pointer-events-none"
     >
       {/* 1. Backdrop suave e translúcido (mantém a tela completamente visível e nítida) */}
       <motion.div
@@ -86,21 +86,31 @@ export const TutorialOverlay: React.FC = () => {
         onClick={skipTutorial}
       />
 
-      {/* 2. Destaque (Spotlight) com anel dourado sutil */}
-      {targetRect && (
-        <motion.div
-          layoutId="tutorial-spotlight"
-          initial={false}
-          animate={{
-            top: Math.max(4, targetRect.top - 6),
-            left: Math.max(4, targetRect.left - 6),
-            width: targetRect.width + 12,
-            height: targetRect.height + 12
-          }}
-          transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-          className="absolute pointer-events-none rounded-2xl ring-4 ring-sun shadow-[0_0_20px_rgba(255,183,3,0.7)] z-10"
-        />
-      )}
+      {/* 2. Destaque (Spotlight) com anel dourado perfeitamente enquadrado sem estourar a tela do iPhone */}
+      {targetRect && (() => {
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 375;
+        const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 667;
+        const left = Math.max(4, Math.min(targetRect.left - 4, viewportWidth - 32));
+        const maxAvailableWidth = Math.max(24, viewportWidth - left - 8);
+        const width = Math.min(targetRect.width + 8, maxAvailableWidth);
+        const top = Math.max(4, targetRect.top - 4);
+        const height = Math.min(targetRect.height + 8, viewportHeight - top - 80);
+
+        return (
+          <motion.div
+            layoutId="tutorial-spotlight"
+            initial={false}
+            animate={{
+              top,
+              left,
+              width,
+              height: Math.max(32, height)
+            }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            className="absolute pointer-events-none rounded-2xl ring-4 ring-sun shadow-[0_0_15px_rgba(255,183,3,0.5)] z-10 max-w-[calc(100vw-8px)] overflow-hidden"
+          />
+        );
+      })()}
 
       {/* 3. Caixa do Tutorial: compacta e bem posicionada sem cobrir o foco */}
       <div className="fixed bottom-2 inset-x-2 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-w-md w-auto z-20 pointer-events-auto">

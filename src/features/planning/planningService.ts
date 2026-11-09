@@ -415,9 +415,12 @@ export async function createRecurringBillWithUndo(input: {
   userId?: string;
   spaceId?: string;
   title: string;
+  description?: string;
   amountCents: number;
   categoryId: string;
   nextDate: string; // YYYY-MM-DD
+  totalMonths?: number | null;
+  paidCount?: number;
 }): Promise<{ recurrence: RecurrenceRecord; undo: () => Promise<void> }> {
   const now = new Date().toISOString();
   const id = generateId('rec');
@@ -430,9 +433,14 @@ export async function createRecurringBillWithUndo(input: {
     nextDate: input.nextDate,
     active: true,
     templateTitle: input.title.trim(),
+    description: input.description?.trim() || undefined,
     amountCents: Math.round(input.amountCents),
     categoryId: input.categoryId,
     type: 'saida',
+    totalMonths: input.totalMonths && input.totalMonths > 0 ? Math.floor(input.totalMonths) : null,
+    paidCount: input.paidCount && input.paidCount > 0 ? Math.floor(input.paidCount) : 0,
+    lastPaidDate: null,
+    lastPaidMonth: null,
     createdAt: now,
     updatedAt: now,
     deletedAt: null
@@ -449,9 +457,24 @@ export async function createRecurringBillWithUndo(input: {
   };
 }
 
+export async function deleteRecurringBillWithUndo(
+  recurrenceId: string
+): Promise<{ undo: () => Promise<void> }> {
+  const now = new Date().toISOString();
+  await db.recurrences.update(recurrenceId, { deletedAt: now, updatedAt: now });
+
+  return {
+    undo: async () => {
+      const undoTime = new Date().toISOString();
+      await db.recurrences.update(recurrenceId, { deletedAt: null, updatedAt: undoTime });
+    }
+  };
+}
+
 /**
  * Marca uma conta recorrente como "Paguei!":
- * - Cria o lançamento real do mês
+ * - Cria o lançamento real do mês com descritivo "Esse mês pago" (e indicador de parcelas se houver)
+ * - Registra o status de pago no mês
  * - Avança a `nextDate` da conta para o próximo mês
  * - Permite desfazer tudo com 1 toque
  */
@@ -465,7 +488,15 @@ export async function markRecurringBillPaidWithUndo(
 
   const now = new Date().toISOString();
   const prevNextDate = rec.nextDate;
+  const prevPaidCount = rec.paidCount || 0;
+  const prevLastPaidDate = rec.lastPaidDate || null;
+  const prevLastPaidMonth = rec.lastPaidMonth || null;
+  const nextPaidCount = prevPaidCount + 1;
   const nextMonthDate = format(addMonths(parseISO(rec.nextDate), 1), 'yyyy-MM-dd');
+
+  // Descritivo claro no lançamento: "Nome da Conta - Esse mês pago" (ou com parcelas X/Y)
+  const installmentTag = rec.totalMonths ? ` (${nextPaidCount}/${rec.totalMonths})` : '';
+  const txDescription = `${rec.templateTitle} - Esse mês pago${installmentTag}`;
 
   let wasNewlyCreated = false;
   let finalTxId = '';
@@ -481,6 +512,10 @@ export async function markRecurringBillPaidWithUndo(
     if (existingTx) {
       finalTxId = existingTx.id;
       wasNewlyCreated = false;
+      await db.transactions.update(finalTxId, {
+        description: txDescription,
+        updatedAt: now
+      });
     } else {
       finalTxId = generateId('tx');
       wasNewlyCreated = true;
@@ -492,10 +527,16 @@ export async function markRecurringBillPaidWithUndo(
         type: rec.type,
         categoryId: rec.categoryId,
         date: prevNextDate,
-        description: rec.templateTitle,
+        description: txDescription,
         paymentMethod: 'pix',
         recurrenceId: rec.id,
-        installment: null,
+        installment: rec.totalMonths
+          ? {
+              current: nextPaidCount,
+              total: rec.totalMonths,
+              groupId: rec.id
+            }
+          : null,
         origin: 'manual',
         createdAt: now,
         updatedAt: now,
@@ -505,6 +546,9 @@ export async function markRecurringBillPaidWithUndo(
 
     await db.recurrences.update(recurrenceId, {
       nextDate: nextMonthDate,
+      paidCount: nextPaidCount,
+      lastPaidDate: prevNextDate,
+      lastPaidMonth: prevNextDate.slice(0, 7),
       updatedAt: now
     });
   });
@@ -523,6 +567,9 @@ export async function markRecurringBillPaidWithUndo(
         }
         await db.recurrences.update(recurrenceId, {
           nextDate: prevNextDate,
+          paidCount: prevPaidCount,
+          lastPaidDate: prevLastPaidDate,
+          lastPaidMonth: prevLastPaidMonth,
           updatedAt: undoTime
         });
       });

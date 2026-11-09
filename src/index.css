@@ -15,19 +15,53 @@
     --space-64: 64px;
   }
 
-  /* Escala de Tamanho da Letra: como todas as classes de texto usam rem,
-     todos os textos (inclusive os de apoio >= 14px) escalam proporcionalmente! */
+  /* Previne rolagem horizontal e auto-zoom em celulares (especialmente Safari no iPhone) */
+  html,
+  body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* Escala de Tamanho da Letra adaptativa para mobile e desktop:
+     - No celular (< 640px), escala as letras sem estourar o limite de 375px/390px
+     - No desktop (>= 641px), oferece a escala completa 16px/18px/20px */
   html,
   html[data-font-size='normal'] {
-    font-size: 16px;
+    font-size: 15px;
   }
 
   html[data-font-size='large'] {
-    font-size: 18px;
+    font-size: 16.5px;
   }
 
   html[data-font-size='xlarge'] {
-    font-size: 20px;
+    font-size: 18px;
+  }
+
+  @media (min-width: 641px) {
+    html,
+    html[data-font-size='normal'] {
+      font-size: 16px;
+    }
+
+    html[data-font-size='large'] {
+      font-size: 18px;
+    }
+
+    html[data-font-size='xlarge'] {
+      font-size: 20px;
+    }
   }
 
   body {

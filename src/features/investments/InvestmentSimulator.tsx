@@ -808,40 +808,40 @@ export const InvestmentSimulator: React.FC = () => {
             <button
               type="button"
               onClick={() => setResultTab('diversificacao')}
-              className={`flex-1 min-h-[40px] px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex-1 min-w-0 min-h-[40px] px-1.5 sm:px-3 rounded-xl text-[11px] sm:text-xs md:text-sm font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
                 resultTab === 'diversificacao'
                   ? 'bg-blue-royal text-white shadow-soft'
                   : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-white/10'
               }`}
             >
-              <PieIcon size={15} />
-              <span>Ganhos da Carteira</span>
+              <PieIcon size={14} className="shrink-0" />
+              <span className="truncate">Ganhos da Carteira</span>
             </button>
 
             <button
               type="button"
               onClick={() => setResultTab('evolucao')}
-              className={`flex-1 min-h-[40px] px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex-1 min-w-0 min-h-[40px] px-1.5 sm:px-3 rounded-xl text-[11px] sm:text-xs md:text-sm font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
                 resultTab === 'evolucao'
                   ? 'bg-blue-royal text-white shadow-soft'
                   : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-white/10'
               }`}
             >
-              <TrendingUp size={15} />
-              <span>Evolução no Tempo</span>
+              <TrendingUp size={14} className="shrink-0" />
+              <span className="truncate">Evolução no Tempo</span>
             </button>
 
             <button
               type="button"
               onClick={() => setResultTab('ativo_unico')}
-              className={`flex-1 min-h-[40px] px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex-1 min-w-0 min-h-[40px] px-1.5 sm:px-3 rounded-xl text-[11px] sm:text-xs md:text-sm font-bold flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
                 resultTab === 'ativo_unico'
                   ? 'bg-blue-royal text-white shadow-soft'
                   : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-white/10'
               }`}
             >
-              <Coins size={15} />
-              <span>Ativo Único</span>
+              <Coins size={14} className="shrink-0" />
+              <span className="truncate">Ativo Único</span>
             </button>
           </div>
 

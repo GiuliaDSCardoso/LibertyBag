@@ -176,12 +176,12 @@ export const App: React.FC = () => {
 
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <div className="min-h-screen bg-cream dark:bg-blue-deep text-blue-deep dark:text-cream transition-colors">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden min-w-0 bg-cream dark:bg-blue-deep text-blue-deep dark:text-cream transition-colors">
         <NavigationBars />
 
-        {/* Container principal: largura máxima 1240px centralizado e padding lateral fluido (clamp) */}
-        <main className="md:pl-[272px] pb-28 md:pb-12">
-          <div className="max-w-[1240px] mx-auto px-[clamp(16px,3.5vw,48px)] pt-4 md:pt-6">
+        {/* Container principal: largura máxima 1240px centralizado sem transbordar tela no mobile */}
+        <main className="md:pl-[272px] pb-28 md:pb-12 w-full max-w-full min-w-0 overflow-x-hidden">
+          <div className="w-full max-w-[1240px] min-w-0 mx-auto px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-4 md:pt-6">
             <AnimatedRoutes />
           </div>
         </main>

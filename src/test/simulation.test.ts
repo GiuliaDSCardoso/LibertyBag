@@ -136,4 +136,13 @@ describe('LibertyBag — Simulador de Parcelamento (Fase 3.5)', () => {
     expect(pay99?.name).toBe('99Pay');
     expect(pay99?.pixMonthlyRate).toBe(4.49);
   });
+
+  it('inclui Banco do Brasil (BB) na lista de bancos populares', () => {
+    const bb = POPULAR_BANKS.find(b => b.id === 'bb');
+    expect(bb).toBeDefined();
+    expect(bb?.name).toBe('Banco do Brasil (BB)');
+    expect(bb?.creditMonthlyRate).toBe(3.99);
+    expect(bb?.pixMonthlyRate).toBe(3.99);
+    expect(bb?.pixServiceFeePercent).toBe(2.99);
+  });
 });

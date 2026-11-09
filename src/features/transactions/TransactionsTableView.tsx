@@ -280,10 +280,15 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                           setDraftDesc((prev) => ({ ...prev, [tx.id]: tx.description }));
                           setEditingCell({ id: tx.id, field: 'desc' });
                         }}
-                        className="px-2 py-1 rounded-lg border border-transparent hover:border-blue-sky hover:bg-white/80 dark:hover:bg-blue-deep/70 cursor-text font-bold text-sm truncate"
+                        className="px-2 py-1 rounded-lg border border-transparent hover:border-blue-sky hover:bg-white/80 dark:hover:bg-blue-deep/70 cursor-text font-bold text-sm truncate flex items-center gap-1.5"
                         title="Clique duas vezes para editar a descrição"
                       >
-                        {tx.description || <span className="opacity-40 italic">Sem descrição</span>}
+                        <span className="truncate">{tx.description || <span className="opacity-40 italic">Sem descrição</span>}</span>
+                        {tx.description?.includes('Esse mês pago') && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-green-ok/15 text-green-ok dark:text-[#4ADE80] border border-green-ok/30 shrink-0">
+                            Esse mês pago
+                          </span>
+                        )}
                       </div>
                     )}
                   </td>

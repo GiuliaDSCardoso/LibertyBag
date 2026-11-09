@@ -10,6 +10,8 @@ import {
   Plus,
   Copy,
   Check,
+  CheckCircle2,
+  Repeat,
   ArrowUpCircle,
   ArrowDownCircle,
   Sparkles,
@@ -17,7 +19,7 @@ import {
   Calculator,
   TrendingUp
 } from 'lucide-react';
-import { db, type SavingsGoalRecord, type TripItemRecord } from '../../db/dexie';
+import { db, type RecurrenceRecord, type SavingsGoalRecord, type TripItemRecord } from '../../db/dexie';
 import { useAppStore } from '../../app/store/useAppStore';
 import {
   calculateBudgetUsagePercent,
@@ -29,6 +31,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { HelpButton } from '../../components/ui/HelpButton';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ModalShell } from '../../components/ui/ModalShell';
 import { CustomSelect } from '../../components/ui/CustomSelect';
@@ -43,6 +46,7 @@ import {
   createSavingsGoalWithUndo,
   createTripWithUndo,
   deleteGoalWithUndo,
+  deleteRecurringBillWithUndo,
   markRecurringBillPaidWithUndo,
   moveGoalMoneyWithUndo,
   saveBudgetWithUndo,
@@ -55,7 +59,7 @@ export const PlanningPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get('tab') as PlanningTab | null;
 
-  const { activeSpaceId, activeUserId, showUndoToast } = useAppStore();
+  const { activeSpaceId, activeUserId, showUndoToast, openAddModal } = useAppStore();
   const [activeTab, setActiveTabState] = useState<PlanningTab>(() => {
     if (urlTab && ['cofrinhos', 'orcamento', 'viagens', 'contas', 'simulador', 'investimentos'].includes(urlTab)) {
       return urlTab;
@@ -101,6 +105,23 @@ export const PlanningPage: React.FC = () => {
           (tx) =>
             !tx.deletedAt &&
             tx.type === 'saida' &&
+            tx.date >= monthRange.startISO &&
+            tx.date <= monthRange.endISO
+        )
+        .toArray(),
+    [activeSpaceId, monthRange.startISO, monthRange.endISO],
+    []
+  );
+
+  const monthIncomeTransactions = useLiveQuery(
+    async () =>
+      db.transactions
+        .where('spaceId')
+        .equals(activeSpaceId)
+        .and(
+          (tx) =>
+            !tx.deletedAt &&
+            tx.type === 'entrada' &&
             tx.date >= monthRange.startISO &&
             tx.date <= monthRange.endISO
         )
@@ -208,9 +229,14 @@ export const PlanningPage: React.FC = () => {
   // Modal Nova Conta a Pagar
   const [newBillModalOpen, setNewBillModalOpen] = useState(false);
   const [billTitle, setBillTitle] = useState('');
+  const [billDescription, setBillDescription] = useState('');
   const [billAmountInput, setBillAmountInput] = useState('');
   const [billDate, setBillDate] = useState(() => getTodayISO());
   const [billCategoryId, setBillCategoryId] = useState('cat-contas');
+  const [billDurationType, setBillDurationType] = useState<'continua' | 'parcelada'>('continua');
+  const [billTotalMonthsInput, setBillTotalMonthsInput] = useState('12');
+  const [billPaidCountInput, setBillPaidCountInput] = useState('0');
+  const [billToDelete, setBillToDelete] = useState<RecurrenceRecord | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -409,20 +435,44 @@ export const PlanningPage: React.FC = () => {
       return;
     }
 
+    const totalMonths =
+      billDurationType === 'parcelada'
+        ? Math.max(1, parseInt(billTotalMonthsInput, 10) || 12)
+        : null;
+    const initialPaid =
+      billDurationType === 'parcelada'
+        ? Math.max(0, parseInt(billPaidCountInput, 10) || 0)
+        : 0;
+
     const { recurrence, undo } = await createRecurringBillWithUndo({
       userId: activeUserId,
       spaceId: activeSpaceId,
       title: trimmedTitle,
+      description: billDescription.trim() || undefined,
       amountCents: cents,
       categoryId: billCategoryId,
-      nextDate: billDate
+      nextDate: billDate,
+      totalMonths,
+      paidCount: initialPaid
     });
 
     setNewBillModalOpen(false);
     setBillTitle('');
+    setBillDescription('');
     setBillAmountInput('');
+    setBillDurationType('continua');
+    setBillTotalMonthsInput('12');
+    setBillPaidCountInput('0');
     setModalError(null);
     showUndoToast(`Conta "${recurrence.templateTitle}" adicionada!`, undo);
+  };
+
+  const handleDeleteBill = async () => {
+    if (!billToDelete) return;
+    const target = billToDelete;
+    const { undo } = await deleteRecurringBillWithUndo(target.id);
+    setBillToDelete(null);
+    showUndoToast(`Conta "${target.templateTitle}" apagada!`, undo);
   };
 
   const handleMarkBillPaid = async (recId: string, title: string) => {
@@ -456,6 +506,74 @@ export const PlanningPage: React.FC = () => {
     }
     return map;
   }, [monthBudgets]);
+
+  // Total de receitas/ganhos recebidos no mês
+  const totalIncomeCents = useMemo(() => {
+    return (monthIncomeTransactions || []).reduce((acc, tx) => acc + (tx.amountCents || 0), 0);
+  }, [monthIncomeTransactions]);
+
+  // Métricas financeiras de contas a pagar e quitação do mês
+  const billsMetrics = useMemo(() => {
+    let totalBillsMonthCents = 0;
+    let paidBillsMonthCents = 0;
+    let paidBillsCount = 0;
+    let totalActiveBillsCount = 0;
+    let totalLongTermDebtCents = 0;
+
+    for (const rec of recurrences) {
+      const isPaid = Boolean(
+        (rec.lastPaidMonth && rec.lastPaidMonth === currentMonthKey) ||
+        monthTransactions.some((t) => t.recurrenceId === rec.id && !t.deletedAt)
+      );
+
+      const isFullyPaidPast = Boolean(
+        rec.totalMonths &&
+        (rec.paidCount || 0) >= rec.totalMonths &&
+        !isPaid
+      );
+
+      // Se já foi totalmente quitada em meses anteriores, não entra como dívida do mês atual
+      if (isFullyPaidPast) {
+        continue;
+      }
+
+      totalActiveBillsCount += 1;
+      totalBillsMonthCents += rec.amountCents;
+
+      if (isPaid) {
+        paidBillsMonthCents += rec.amountCents;
+        paidBillsCount += 1;
+      }
+
+      // Dívida total consolidada (se for parcelada, soma todas as parcelas restantes)
+      if (rec.totalMonths) {
+        const remainingInstallments = Math.max(0, rec.totalMonths - (rec.paidCount || 0));
+        totalLongTermDebtCents += remainingInstallments * rec.amountCents;
+      } else {
+        // Se for conta contínua, soma o valor da conta deste mês se ainda não paga
+        if (!isPaid) {
+          totalLongTermDebtCents += rec.amountCents;
+        }
+      }
+    }
+
+    const remainingBillsMonthCents = Math.max(0, totalBillsMonthCents - paidBillsMonthCents);
+    const freeBalanceCents = totalIncomeCents - remainingBillsMonthCents;
+    const progressPercent = totalActiveBillsCount > 0
+      ? Math.min(100, Math.round((paidBillsCount / totalActiveBillsCount) * 100))
+      : 0;
+
+    return {
+      totalBillsMonthCents,
+      paidBillsMonthCents,
+      paidBillsCount,
+      totalActiveBillsCount,
+      remainingBillsMonthCents,
+      totalLongTermDebtCents,
+      freeBalanceCents,
+      progressPercent
+    };
+  }, [recurrences, monthTransactions, currentMonthKey, totalIncomeCents]);
 
   return (
     <div className="space-y-8 pb-12" data-tutorial="planning-view">
@@ -499,14 +617,14 @@ export const PlanningPage: React.FC = () => {
             role="tab"
             aria-selected={activeTab === id}
             onClick={() => setActiveTab(id)}
-            className={`min-h-[50px] px-2.5 sm:px-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap transition-all ${
+            className={`min-h-[48px] sm:min-h-[50px] px-2 sm:px-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 transition-all ${
               activeTab === id
                 ? 'bg-blue-royal text-white shadow-soft'
                 : 'text-blue-deep dark:text-cream hover:bg-blue-sky/40 dark:hover:bg-blue-royal/30'
             }`}
           >
-            <Icon size={18} className="shrink-0" />
-            <span>{label}</span>
+            <Icon size={17} className="shrink-0" />
+            <span className="truncate">{label}</span>
           </button>
         ))}
       </div>
@@ -908,20 +1026,213 @@ export const PlanningPage: React.FC = () => {
           ABA 4: CONTAS A PAGAR (RECORRENTES COM BOTÃO "PAGUEI")
          ===================================================================== */}
       {activeTab === 'contas' && (
-        <section className="space-y-5" aria-label="Contas a pagar">
+        <section className="space-y-6" aria-label="Contas a pagar">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="title-section text-blue-royal dark:text-sun">
                 Contas que se repetem todo mês
               </h2>
               <p className="text-sm text-blue-deep/85 dark:text-cream/85 mt-1">
-                Quando pagar uma conta, basta tocar em &ldquo;Paguei&rdquo; para anotar no mês.
+                Acompanhe seus ganhos, dívidas e veja o valor restante descontar na hora ao tocar em &ldquo;Paguei&rdquo;.
               </p>
             </div>
             <Button variant="primary" onClick={() => setNewBillModalOpen(true)}>
               <Plus size={18} />
               <span>Nova conta mensal</span>
             </Button>
+          </div>
+
+          {/* Painel Resumo Financeiro de Contas (Ganhos vs Dívidas com Desconto em Tempo Real) */}
+          <div className="space-y-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* Card 1: Total de Ganhos */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-linear-to-br from-[#10B981]/15 to-[#059669]/5 dark:from-[#10B981]/20 dark:to-[#059669]/10 border-2 border-[#10B981]/40 dark:border-[#10B981]/30 shadow-xs relative overflow-hidden">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#059669] dark:text-[#34D399]">
+                    Total de Ganhos
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-[#10B981] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <ArrowUpCircle size={18} />
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p className="text-2xl font-extrabold font-serif italic text-blue-deep dark:text-white tabular-nums">
+                    {formatCentsToBRL(totalIncomeCents)}
+                  </p>
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-blue-deep/70 dark:text-cream/70 font-semibold">
+                    <span>
+                      {monthIncomeTransactions.length === 1
+                        ? '1 entrada neste mês'
+                        : `${monthIncomeTransactions.length} entradas neste mês`}
+                    </span>
+                    {totalIncomeCents === 0 && (
+                      <button
+                        type="button"
+                        onClick={openAddModal}
+                        className="text-blue-royal dark:text-sun font-bold underline cursor-pointer"
+                      >
+                        + Anotar ganho
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Total de Contas / Dívidas do Mês */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-linear-to-br from-blue-sky/40 to-blue-sky/10 dark:from-white/10 dark:to-white/5 border-2 border-blue-sky/70 dark:border-white/15 shadow-xs relative overflow-hidden">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-royal dark:text-sun">
+                    Total de Dívidas / Contas
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-blue-royal dark:bg-sun text-white dark:text-blue-deep flex items-center justify-center shrink-0 shadow-xs">
+                    <CalendarCheck size={18} />
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p className="text-2xl font-extrabold font-serif italic text-blue-deep dark:text-white tabular-nums">
+                    {formatCentsToBRL(billsMetrics.totalBillsMonthCents)}
+                  </p>
+                  <div className="flex items-center justify-between mt-1 text-[11px] text-blue-deep/70 dark:text-cream/70 font-semibold">
+                    <span>{billsMetrics.totalActiveBillsCount} contas cadastradas</span>
+                    {billsMetrics.totalLongTermDebtCents > 0 && (
+                      <span className="text-orange font-bold" title="Total somando todas as parcelas futuras de dívidas">
+                        Parcelado: {formatCentsToBRL(billsMetrics.totalLongTermDebtCents)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Falta Pagar (Desconta conforme vai pagando!) */}
+              <div
+                className={`p-4 sm:p-5 rounded-2xl border-2 shadow-xs relative overflow-hidden transition-all ${
+                  billsMetrics.remainingBillsMonthCents === 0 && billsMetrics.totalActiveBillsCount > 0
+                    ? 'bg-linear-to-br from-[#10B981]/15 to-[#059669]/5 dark:from-[#10B981]/20 dark:to-[#059669]/10 border-[#10B981]/50'
+                    : 'bg-linear-to-br from-[#EF4444]/15 to-[#DC2626]/5 dark:from-[#EF4444]/20 dark:to-[#DC2626]/10 border-[#EF4444]/40 dark:border-[#EF4444]/30'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`text-xs font-extrabold uppercase tracking-wider ${
+                      billsMetrics.remainingBillsMonthCents === 0 && billsMetrics.totalActiveBillsCount > 0
+                        ? 'text-[#059669] dark:text-[#34D399]'
+                        : 'text-[#DC2626] dark:text-[#F87171]'
+                    }`}
+                  >
+                    Falta Pagar
+                  </span>
+                  <div
+                    className={`w-8 h-8 rounded-xl text-white flex items-center justify-center shrink-0 shadow-xs ${
+                      billsMetrics.remainingBillsMonthCents === 0 && billsMetrics.totalActiveBillsCount > 0
+                        ? 'bg-[#10B981]'
+                        : 'bg-[#EF4444]'
+                    }`}
+                  >
+                    {billsMetrics.remainingBillsMonthCents === 0 && billsMetrics.totalActiveBillsCount > 0 ? (
+                      <CheckCircle2 size={18} />
+                    ) : (
+                      <ArrowDownCircle size={18} />
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p
+                    className={`text-2xl font-extrabold font-serif italic tabular-nums ${
+                      billsMetrics.remainingBillsMonthCents === 0 && billsMetrics.totalActiveBillsCount > 0
+                        ? 'text-[#059669] dark:text-[#34D399]'
+                        : 'text-[#DC2626] dark:text-[#F87171]'
+                    }`}
+                  >
+                    {formatCentsToBRL(billsMetrics.remainingBillsMonthCents)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-blue-deep/70 dark:text-cream/70 font-semibold truncate">
+                    {billsMetrics.remainingBillsMonthCents === 0 && billsMetrics.totalActiveBillsCount > 0 ? (
+                      '🎉 Todas as contas pagas no mês!'
+                    ) : (
+                      <>
+                        {billsMetrics.paidBillsCount} de {billsMetrics.totalActiveBillsCount} pagas
+                        {billsMetrics.paidBillsMonthCents > 0 && ` (-${formatCentsToBRL(billsMetrics.paidBillsMonthCents)} descontados)`}
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Card 4: Sobra Prevista / Saldo Livre */}
+              <div
+                className={`p-4 sm:p-5 rounded-2xl border-2 shadow-xs relative overflow-hidden transition-all ${
+                  billsMetrics.freeBalanceCents >= 0
+                    ? 'bg-linear-to-br from-sun/25 to-sun/10 dark:from-[#FFD84D]/15 dark:to-transparent border-sun/60 dark:border-sun/40'
+                    : 'bg-linear-to-br from-[#EF4444]/20 to-transparent border-[#EF4444]/50'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-blue-royal dark:text-sun">
+                    Sobra Prevista
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#FF8833] to-[#FF7518] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Sparkles size={18} />
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <p
+                    className={`text-2xl font-extrabold font-serif italic tabular-nums ${
+                      billsMetrics.freeBalanceCents >= 0
+                        ? 'text-blue-deep dark:text-white'
+                        : 'text-red-soft font-bold'
+                    }`}
+                  >
+                    {formatCentsToBRL(billsMetrics.freeBalanceCents)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-blue-deep/70 dark:text-cream/70 font-semibold truncate">
+                    {billsMetrics.freeBalanceCents >= 0
+                      ? 'Ganhos menos contas que faltam pagar'
+                      : 'Atenção: contas superam os ganhos do mês'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Barra de Progresso e Quitação do Mês com Desconto Dinâmico */}
+            {billsMetrics.totalActiveBillsCount > 0 && (
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-[#152144] border-2 border-blue-sky/60 dark:border-white/10 shadow-card space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-royal dark:text-sun font-extrabold uppercase tracking-wider text-[11px]">
+                      Quitação do Mês:
+                    </span>
+                    <span className="text-blue-deep dark:text-cream">
+                      {billsMetrics.paidBillsCount} de {billsMetrics.totalActiveBillsCount} contas pagas ({billsMetrics.progressPercent}%)
+                    </span>
+                  </div>
+                  <span className="text-xs font-extrabold text-green-ok dark:text-[#4ADE80]">
+                    {formatCentsToBRL(billsMetrics.paidBillsMonthCents)} descontados de {formatCentsToBRL(billsMetrics.totalBillsMonthCents)}
+                  </span>
+                </div>
+
+                <div className="w-full h-3 rounded-full bg-cream dark:bg-[#0D152D] overflow-hidden border border-blue-sky/40">
+                  <div
+                    className="h-full bg-linear-to-r from-blue-royal via-[#10B981] to-green-ok rounded-full transition-all duration-500 shadow-xs"
+                    style={{ width: `${billsMetrics.progressPercent}%` }}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-blue-deep/75 dark:text-cream/75">
+                  <span>
+                    💡 Toque no botão <strong className="text-blue-royal dark:text-sun">&ldquo;Paguei!&rdquo;</strong> de qualquer conta abaixo para dar baixa. O valor restante é descontado na hora!
+                  </span>
+                  {billsMetrics.remainingBillsMonthCents > 0 ? (
+                    <span className="font-bold text-orange shrink-0">
+                      Falta quitar {formatCentsToBRL(billsMetrics.remainingBillsMonthCents)}
+                    </span>
+                  ) : (
+                    <span className="font-bold text-green-ok dark:text-[#4ADE80] shrink-0">
+                      Parabéns! Todas as contas do mês quitadas. 🎉
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {recurrences.length === 0 ? (
@@ -934,31 +1245,157 @@ export const PlanningPage: React.FC = () => {
             />
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {recurrences.map((rec) => (
-                <Card
-                  key={rec.id}
-                  variant="white"
-                  className="flex flex-wrap items-center justify-between gap-4"
-                >
-                  <div>
-                    <span className="text-xs font-bold uppercase text-orange block">
-                      Próximo vencimento: {rec.nextDate.split('-').reverse().join('/')}
-                    </span>
-                    <h3 className="font-bold text-lg">{rec.templateTitle}</h3>
-                    <p className="font-extrabold text-xl text-blue-royal dark:text-sun tabular-nums">
-                      {formatCentsToBRL(rec.amountCents)}
-                    </p>
-                  </div>
+              {recurrences.map((rec) => {
+                const cat = categories.find((c) => c.id === rec.categoryId);
+                const isPaidThisMonth = Boolean(
+                  (rec.lastPaidMonth && rec.lastPaidMonth === currentMonthKey) ||
+                  monthTransactions.some((t) => t.recurrenceId === rec.id && !t.deletedAt)
+                );
 
-                  <Button
-                    variant="primary"
-                    onClick={() => handleMarkBillPaid(rec.id, rec.templateTitle)}
+                return (
+                  <Card
+                    key={rec.id}
+                    variant="white"
+                    className="p-5 sm:p-6 space-y-4 relative overflow-hidden"
                   >
-                    <Check size={18} />
-                    <span>Paguei!</span>
-                  </Button>
-                </Card>
-              ))}
+                    {/* Cabeçalho do Card: Ícone da categoria, Categoria, Título e Badges */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3.5 min-w-0">
+                        <div
+                          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs border border-white/30"
+                          style={{ backgroundColor: cat?.color || '#2346C8' }}
+                        >
+                          <CategoryIcon name={cat?.icon || 'FileText'} size={22} />
+                        </div>
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-extrabold uppercase tracking-wider text-blue-deep/60 dark:text-cream/60">
+                              {cat?.name || 'Contas'}
+                            </span>
+                            {isPaidThisMonth ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-green-ok/15 text-green-ok dark:text-[#4ADE80] font-extrabold text-[11px] border border-green-ok/30">
+                                <CheckCircle2 size={13} />
+                                <span>Esse mês pago (Descontado)</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange/15 text-orange dark:text-sun font-extrabold text-[11px] border border-orange/30">
+                                <span>Pendente (A descontar)</span>
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-bold text-lg text-blue-deep dark:text-white truncate">
+                            {rec.templateTitle}
+                          </h3>
+                        </div>
+                      </div>
+
+                      {/* Botão de Apagar Conta */}
+                      <button
+                        type="button"
+                        onClick={() => setBillToDelete(rec)}
+                        aria-label={`Apagar conta ${rec.templateTitle}`}
+                        className="w-10 h-10 rounded-full hover:bg-red-soft/15 text-red-soft flex items-center justify-center transition-colors active:scale-95 shrink-0"
+                        title="Apagar esta conta mensal"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
+                    {/* Descrição detalhada da conta (se houver) */}
+                    {rec.description && (
+                      <p className="text-xs text-blue-deep/80 dark:text-cream/80 bg-cream/70 dark:bg-[#0D152D]/60 p-2.5 rounded-xl border border-blue-sky/40 dark:border-white/10 leading-relaxed">
+                        {rec.description}
+                      </p>
+                    )}
+
+                    {/* Valor e Vencimento */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-orange block">
+                          {isPaidThisMonth ? 'Próximo vencimento:' : 'Vencimento deste mês:'}{' '}
+                          {rec.nextDate.split('-').reverse().join('/')}
+                        </span>
+                        <p className="font-extrabold text-2xl text-blue-royal dark:text-sun tabular-nums">
+                          {formatCentsToBRL(rec.amountCents)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Informações de Repetição e Parcelas Faltantes */}
+                    {rec.totalMonths ? (
+                      (() => {
+                        const total = rec.totalMonths;
+                        const paid = rec.paidCount || 0;
+                        const remaining = Math.max(0, total - paid);
+                        const pct = Math.min(100, Math.round((paid / total) * 100));
+                        return (
+                          <div className="p-3 rounded-2xl bg-blue-sky/20 dark:bg-white/5 border border-blue-sky/35 dark:border-white/10 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold">
+                              <span className="text-blue-deep/80 dark:text-cream/80 flex items-center gap-1.5">
+                                <Repeat size={14} className="text-blue-royal dark:text-sun shrink-0" />
+                                <span>Repete em {total} meses</span>
+                              </span>
+                              <span
+                                className={
+                                  remaining === 0
+                                    ? 'text-green-ok font-extrabold'
+                                    : 'text-orange font-extrabold'
+                                }
+                              >
+                                {remaining === 0
+                                  ? 'Todas pagas!'
+                                  : `Faltam ${remaining} ${remaining === 1 ? 'parcela' : 'parcelas'}`}
+                              </span>
+                            </div>
+
+                            <div className="w-full h-2 rounded-full bg-cream dark:bg-[#0D152D] overflow-hidden border border-blue-sky/30">
+                              <div
+                                className="h-full bg-green-ok rounded-full transition-all duration-300"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+
+                            <div className="flex justify-between items-center text-[11px] text-blue-deep/70 dark:text-cream/70 font-semibold">
+                              <span>Parcela {paid} de {total}</span>
+                              <span>{pct}% concluído</span>
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs font-bold text-blue-deep/75 dark:text-cream/75 p-2.5 rounded-xl bg-blue-sky/15 dark:bg-white/5 border border-blue-sky/30 dark:border-white/10">
+                        <Repeat size={14} className="text-blue-royal dark:text-sun shrink-0" />
+                        <span>Repete todo mês (Fixa contínua) • {rec.paidCount || 0} meses já pagos</span>
+                      </div>
+                    )}
+
+                    {/* Botão de Ação: Paguei! / Pagar próx. mês */}
+                    <div className="pt-2 border-t border-blue-sky/30 dark:border-white/10 flex items-center justify-between gap-2">
+                      <div className="text-xs">
+                        {isPaidThisMonth ? (
+                          <span className="text-green-ok dark:text-[#4ADE80] font-bold text-[11px] flex items-center gap-1">
+                            <CheckCircle2 size={13} />
+                            Abatida do total do mês
+                          </span>
+                        ) : (
+                          <span className="text-blue-deep/70 dark:text-cream/70 text-[11px]">
+                            Toque para abater do total
+                          </span>
+                        )}
+                      </div>
+                      <Button
+                        variant={isPaidThisMonth ? 'secondary' : 'primary'}
+                        size="md"
+                        onClick={() => handleMarkBillPaid(rec.id, rec.templateTitle)}
+                        className="shadow-sm"
+                      >
+                        <Check size={18} />
+                        <span>{isPaidThisMonth ? 'Pagar próx. mês' : 'Paguei!'}</span>
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </section>
@@ -1373,6 +1810,20 @@ export const PlanningPage: React.FC = () => {
             />
           </div>
 
+          <div>
+            <label htmlFor="bill-desc" className="block font-bold text-sm mb-1">
+              Descrição ou anotação (opcional)
+            </label>
+            <input
+              id="bill-desc"
+              type="text"
+              value={billDescription}
+              onChange={(e) => setBillDescription(e.target.value)}
+              placeholder="Ex.: Vence no débito dia 10, código 12345, conta conjunta..."
+              className="w-full min-h-[50px] px-4 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-semibold"
+            />
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="bill-amount" className="block font-bold text-sm mb-1">
@@ -1418,8 +1869,92 @@ export const PlanningPage: React.FC = () => {
               }))}
             />
           </div>
+
+          {/* Duração e Repetição da Conta */}
+          <div className="space-y-2 pt-2 border-t border-blue-sky/40 dark:border-white/10">
+            <label className="block font-bold text-sm">
+              Duração e Repetição da Conta
+            </label>
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-blue-sky/20 dark:bg-white/5 border border-blue-sky/30 text-xs">
+              <button
+                type="button"
+                onClick={() => setBillDurationType('continua')}
+                className={`py-2 px-3 rounded-lg font-bold transition-all cursor-pointer ${
+                  billDurationType === 'continua'
+                    ? 'bg-blue-royal text-white shadow-xs'
+                    : 'text-blue-deep/75 dark:text-cream/75 hover:bg-white/40 dark:hover:bg-white/10'
+                }`}
+              >
+                Contínua (Todo mês)
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillDurationType('parcelada')}
+                className={`py-2 px-3 rounded-lg font-bold transition-all cursor-pointer ${
+                  billDurationType === 'parcelada'
+                    ? 'bg-blue-royal text-white shadow-xs'
+                    : 'text-blue-deep/75 dark:text-cream/75 hover:bg-white/40 dark:hover:bg-white/10'
+                }`}
+              >
+                Parcelada (Qtd. meses)
+              </button>
+            </div>
+
+            {billDurationType === 'parcelada' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label htmlFor="bill-months" className="block text-xs font-bold mb-1">
+                    Quantos meses se repete?
+                  </label>
+                  <input
+                    id="bill-months"
+                    type="number"
+                    min="1"
+                    max="360"
+                    value={billTotalMonthsInput}
+                    onChange={(e) => setBillTotalMonthsInput(e.target.value)}
+                    placeholder="Ex.: 12"
+                    className="w-full min-h-[46px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold"
+                  />
+                  <span className="text-[11px] text-blue-deep/60 dark:text-cream/60">
+                    Total de parcelas
+                  </span>
+                </div>
+
+                <div>
+                  <label htmlFor="bill-paid-count" className="block text-xs font-bold mb-1">
+                    Quantas já foram pagas?
+                  </label>
+                  <input
+                    id="bill-paid-count"
+                    type="number"
+                    min="0"
+                    max={parseInt(billTotalMonthsInput, 10) || 360}
+                    value={billPaidCountInput}
+                    onChange={(e) => setBillPaidCountInput(e.target.value)}
+                    placeholder="0"
+                    className="w-full min-h-[46px] px-3.5 rounded-xl bg-white dark:bg-[#152144] border border-blue-sky font-bold"
+                  />
+                  <span className="text-[11px] text-blue-deep/60 dark:text-cream/60">
+                    Parcelas já quitadas
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </ModalShell>
+
+      {/* Diálogo de Confirmação para Apagar Conta Mensal */}
+      <ConfirmDialog
+        open={Boolean(billToDelete)}
+        title={`Apagar conta "${billToDelete?.templateTitle}"?`}
+        description="Esta conta mensal não aparecerá mais nos próximos meses. Os pagamentos anteriores continuam salvos nos seus lançamentos."
+        confirmLabel="Sim, apagar conta"
+        cancelLabel="Não, voltar"
+        onConfirm={handleDeleteBill}
+        onCancel={() => setBillToDelete(null)}
+      />
     </div>
   );
 };

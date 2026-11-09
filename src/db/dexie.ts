@@ -87,9 +87,14 @@ export interface RecurrenceRecord extends BaseEntity {
   nextDate: string; // YYYY-MM-DD
   active: boolean;
   templateTitle: string;
+  description?: string;
   amountCents: number;
   categoryId: string;
   type: TransactionType;
+  totalMonths?: number | null;
+  paidCount?: number;
+  lastPaidDate?: string | null;
+  lastPaidMonth?: string | null;
 }
 
 export interface BudgetRecord extends BaseEntity {

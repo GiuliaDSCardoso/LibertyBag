@@ -227,7 +227,7 @@ export const NavigationBars: React.FC = () => {
         aria-label="Navegação principal"
         className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-[#0D152D]/95 backdrop-blur-md border-t border-blue-sky/70 dark:border-white/10 pb-safe"
       >
-        <div className="max-w-lg mx-auto px-1 py-1.5 flex items-center justify-between">
+        <div className="w-full max-w-lg mx-auto px-1 py-1 flex items-center justify-between">
           {/* 2 primeiros itens: Início, Lançamentos */}
           {NAV_ITEMS.slice(0, 2).map(({ to, label, icon: Icon }) => (
             <NavLink
@@ -235,20 +235,20 @@ export const NavigationBars: React.FC = () => {
               to={to}
               end={to === '/'}
               className={({ isActive }) =>
-                `min-h-[52px] flex-1 rounded-2xl flex flex-col items-center justify-center px-1 py-1 transition-colors ${
+                `min-h-[48px] flex-1 min-w-0 rounded-2xl flex flex-col items-center justify-center px-0.5 py-1 transition-colors ${
                   isActive
                     ? 'text-blue-royal dark:text-sun font-bold bg-blue-sky/35 dark:bg-blue-royal/40'
                     : 'text-blue-deep/85 dark:text-cream/85 font-semibold'
                 }`
               }
             >
-              <Icon size={20} aria-hidden="true" />
-              <span className="text-[12px] leading-tight mt-1 whitespace-nowrap">{label}</span>
+              <Icon size={19} aria-hidden="true" />
+              <span className="text-[11px] sm:text-[12px] leading-tight mt-0.5 truncate max-w-full text-center px-0.5">{label}</span>
             </NavLink>
           ))}
 
           {/* Botão Central Grande "+" para Adicionar */}
-          <div data-tutorial="add-button" className="flex flex-col items-center justify-center px-1.5 -mt-5 shrink-0">
+          <div data-tutorial="add-button" className="flex flex-col items-center justify-center px-1 -mt-4 shrink-0 min-w-0">
             <motion.button
               type="button"
               onClick={openAddModal}
@@ -260,11 +260,11 @@ export const NavigationBars: React.FC = () => {
                   : { rotate: 0 }
               }
               transition={{ duration: 0.2 }}
-              className="w-14 h-14 rounded-full bg-blue-royal hover:bg-blue-deep text-white shadow-soft border-4 border-cream dark:border-blue-deep flex items-center justify-center"
+              className="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-blue-royal hover:bg-blue-deep text-white shadow-soft border-4 border-cream dark:border-blue-deep flex items-center justify-center"
             >
-              <Plus size={28} strokeWidth={2.75} aria-hidden="true" />
+              <Plus size={26} strokeWidth={2.75} aria-hidden="true" />
             </motion.button>
-            <span className="text-[12px] font-bold text-blue-royal dark:text-sun mt-0.5 whitespace-nowrap">
+            <span className="text-[11px] sm:text-[12px] font-bold text-blue-royal dark:text-sun mt-0.5 truncate max-w-full text-center">
               Adicionar
             </span>
           </div>
@@ -275,15 +275,15 @@ export const NavigationBars: React.FC = () => {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `min-h-[52px] flex-1 rounded-2xl flex flex-col items-center justify-center px-1 py-1 transition-colors ${
+                `min-h-[48px] flex-1 min-w-0 rounded-2xl flex flex-col items-center justify-center px-0.5 py-1 transition-colors ${
                   isActive
                     ? 'text-blue-royal dark:text-sun font-bold bg-blue-sky/35 dark:bg-blue-royal/40'
                     : 'text-blue-deep/85 dark:text-cream/85 font-semibold'
                 }`
               }
             >
-              <Icon size={20} aria-hidden="true" />
-              <span className="text-[12px] leading-tight mt-1 whitespace-nowrap">{label}</span>
+              <Icon size={19} aria-hidden="true" />
+              <span className="text-[11px] sm:text-[12px] leading-tight mt-0.5 truncate max-w-full text-center px-0.5">{label}</span>
             </NavLink>
           ))}
         </div>

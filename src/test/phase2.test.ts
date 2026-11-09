@@ -7,6 +7,7 @@ import {
   createRecurringBillWithUndo,
   createSavingsGoalWithUndo,
   createTripWithUndo,
+  deleteRecurringBillWithUndo,
   markRecurringBillPaidWithUndo,
   moveGoalMoneyWithUndo,
   saveBudgetWithUndo,
@@ -145,11 +146,48 @@ describe('LibertyBag — Regras de Negócio da Fase 2 (Planejamento, Análises e
     const txInDb = await db.transactions.get(paid.transactionId);
     expect(txInDb?.amountCents).toBe(18500);
     expect(txInDb?.type).toBe('saida');
+    expect(txInDb?.description).toContain('Esse mês pago');
 
     // Desfazer o pagamento restaura a data anterior e remove o lançamento
     await paid.undo();
     const recAfterUndo = await db.recurrences.get(recurrence.id);
     expect(recAfterUndo?.nextDate).toBe('2026-11-10');
+  });
+
+  it('gerencia contas a pagar com descrição, parcelas restantes, repetição e botão de apagar', async () => {
+    const { recurrence } = await createRecurringBillWithUndo({
+      title: 'Seguro do Carro',
+      description: 'Parcelamento em 10x no débito automático',
+      amountCents: 25000,
+      categoryId: 'cat-contas',
+      nextDate: '2026-11-15',
+      totalMonths: 10,
+      paidCount: 3
+    });
+
+    expect(recurrence.description).toBe('Parcelamento em 10x no débito automático');
+    expect(recurrence.totalMonths).toBe(10);
+    expect(recurrence.paidCount).toBe(3);
+
+    // Marca como paga (4ª parcela)
+    const paid = await markRecurringBillPaidWithUndo(recurrence.id);
+    const recUpdated = await db.recurrences.get(recurrence.id);
+    expect(recUpdated?.paidCount).toBe(4);
+    expect(recUpdated?.lastPaidMonth).toBe('2026-11');
+
+    const txInDb = await db.transactions.get(paid.transactionId);
+    expect(txInDb?.description).toBe('Seguro do Carro - Esse mês pago (4/10)');
+    expect(txInDb?.installment?.current).toBe(4);
+    expect(txInDb?.installment?.total).toBe(10);
+
+    // Apaga a conta mensal com undo
+    const { undo: undoDelete } = await deleteRecurringBillWithUndo(recurrence.id);
+    const recDeleted = await db.recurrences.get(recurrence.id);
+    expect(recDeleted?.deletedAt).toBeTruthy();
+
+    await undoDelete();
+    const recRestored = await db.recurrences.get(recurrence.id);
+    expect(recRestored?.deletedAt).toBeNull();
   });
 
   it('gera Análises por categoria, comparação com mês passado e explicação "Por que estou vendo isso?"', async () => {
