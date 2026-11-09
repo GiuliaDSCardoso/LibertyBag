@@ -24,6 +24,32 @@ export interface BankConfig {
 
 export const POPULAR_BANKS: BankConfig[] = [
   {
+    id: 'picpay',
+    name: 'PicPay',
+    shortName: 'PicPay',
+    color: '#11C76F',
+    accentBg: '#E8FAF1',
+    creditMonthlyRate: 5.49,
+    creditServiceFeePercent: 0,
+    pixMonthlyRate: 5.493, // Produz exatamente os R$ 210,12 em 6x de R$ 1.000 (dados reais do app PicPay)
+    pixServiceFeePercent: 4.99, // Tarifa de 4,99% no Pix com cartão
+    description: 'Tarifa de serviço de 4,99% na transação + 5,49% a.m. de parcelamento (dados reais do app)',
+    sourceNote: 'Aplicativo Oficial PicPay 2026'
+  },
+  {
+    id: 'nubank',
+    name: 'Nubank (Nu)',
+    shortName: 'Nubank',
+    color: '#8A05BE',
+    accentBg: '#F5E8FB',
+    creditMonthlyRate: 4.99,
+    creditServiceFeePercent: 0,
+    pixMonthlyRate: 4.99,
+    pixServiceFeePercent: 3.99,
+    description: 'Tarifa de 3,99% no Pix no crédito + juros médios de 4,99% a.m. no aplicativo Nu',
+    sourceNote: 'Nu Pagamentos'
+  },
+  {
     id: 'inter',
     name: 'Banco Inter',
     shortName: 'Inter',
@@ -61,32 +87,6 @@ export const POPULAR_BANKS: BankConfig[] = [
     pixServiceFeePercent: 3.89,
     description: 'Pix parcelado no cartão C6 com 3,89% de tarifa e 4,79% a.m.',
     sourceNote: 'C6 Bank'
-  },
-  {
-    id: 'picpay',
-    name: 'PicPay',
-    shortName: 'PicPay',
-    color: '#11C76F',
-    accentBg: '#E8FAF1',
-    creditMonthlyRate: 5.49,
-    creditServiceFeePercent: 0,
-    pixMonthlyRate: 5.493, // Produz exatamente os R$ 210,12 em 6x de R$ 1.000 (dados reais do app)
-    pixServiceFeePercent: 4.99, // Tarifa de 4,99% no Pix com cartão
-    description: 'Tarifa de serviço de 4,99% na transação + 5,49% a.m. de parcelamento (dados reais do app)',
-    sourceNote: 'Aplicativo Oficial PicPay 2026'
-  },
-  {
-    id: 'nubank',
-    name: 'Nubank (Nu)',
-    shortName: 'Nubank',
-    color: '#8A05BE',
-    accentBg: '#F5E8FB',
-    creditMonthlyRate: 4.99,
-    creditServiceFeePercent: 0,
-    pixMonthlyRate: 4.99,
-    pixServiceFeePercent: 3.99,
-    description: 'Tarifa de 3,99% no Pix no crédito + juros médios de 4,99% a.m. no aplicativo Nu',
-    sourceNote: 'Nu Pagamentos'
   },
   {
     id: 'itau',
@@ -139,6 +139,19 @@ export const POPULAR_BANKS: BankConfig[] = [
     pixServiceFeePercent: 4.99,
     description: 'Crédito digital Mercado Pago: 4,99% de tarifa + juros de 5,49% a.m.',
     sourceNote: 'Mercado Pago'
+  },
+  {
+    id: '99pay',
+    name: '99Pay',
+    shortName: '99Pay',
+    color: '#F4B000',
+    accentBg: '#FFFBEA',
+    creditMonthlyRate: 4.49,
+    creditServiceFeePercent: 0,
+    pixMonthlyRate: 4.49,
+    pixServiceFeePercent: 3.99,
+    description: 'Pix parcelado no cartão 99Pay: tarifa de 3,99% + juros de 4,49% a.m.',
+    sourceNote: 'App 99Pay Oficial 2026'
   }
 ];
 
@@ -215,23 +228,57 @@ export interface InstallmentCalculationResult {
   totalFinalCents: number;
   totalInterestCents: number;
   serviceFeeCents: number;
+  iofTotalCents: number;
   financingBaseCents: number;
   cetMonthlyPercent: number;
 }
 
+export interface CalculateInstallmentOptions {
+  includeIOF?: boolean;
+  creditInterestFree?: boolean; // Para compras parceladas sem juros no cartão de crédito
+}
+
 /**
  * Cálculo financeiro pela Tabela Price (amortização e juros bancários compostos)
- * integrando a tarifa de serviço/transação do Pix no Cartão e o CET real de mercado.
+ * integrando a tarifa de serviço/transação do Pix no Cartão, IOF oficial brasileiro e o CET real de mercado.
  */
 export function calculateInstallment(
   principalCents: number,
   monthlyRatePercent: number,
   installments: number,
-  serviceFeePercent: number = 0
+  serviceFeePercent: number = 0,
+  options?: CalculateInstallmentOptions
 ): InstallmentCalculationResult {
   const n = Math.max(1, Math.floor(installments));
+
+  // Opção de parcelamento sem juros (modalidade Lojista no Cartão de Crédito)
+  if (options?.creditInterestFree) {
+    const installmentCents = Math.round(principalCents / n);
+    const totalFinalCents = principalCents;
+    return {
+      installmentCents,
+      totalFinalCents,
+      totalInterestCents: 0,
+      serviceFeeCents: 0,
+      iofTotalCents: 0,
+      financingBaseCents: principalCents,
+      cetMonthlyPercent: 0
+    };
+  }
+
   const serviceFeeCents = Math.round(principalCents * (Math.max(0, serviceFeePercent) / 100));
-  const financingBaseCents = principalCents + serviceFeeCents;
+
+  let iofTotalCents = 0;
+  if (options?.includeIOF) {
+    const iofFixed = Math.round(principalCents * 0.0038); // 0,38% fixo sobre o valor financiado
+    const iofDaily = Math.min(
+      Math.round(principalCents * 0.03), // Teto legal anual de 3%
+      Math.round(principalCents * 0.000082 * 30 * n) // 0,0082% ao dia * ~30 dias por parcela
+    );
+    iofTotalCents = iofFixed + iofDaily;
+  }
+
+  const financingBaseCents = principalCents + serviceFeeCents + iofTotalCents;
 
   if (n <= 1) {
     const installmentCents = financingBaseCents;
@@ -243,6 +290,7 @@ export function calculateInstallment(
       totalFinalCents,
       totalInterestCents,
       serviceFeeCents,
+      iofTotalCents,
       financingBaseCents,
       cetMonthlyPercent
     };
@@ -273,6 +321,7 @@ export function calculateInstallment(
     totalFinalCents,
     totalInterestCents,
     serviceFeeCents,
+    iofTotalCents,
     financingBaseCents,
     cetMonthlyPercent
   };
@@ -285,6 +334,7 @@ export interface BankSimulationItem {
   originalAmountCents: number;
   serviceFeePercent: number;
   serviceFeeCents: number;
+  iofTotalCents: number;
   financingBaseCents: number;
   monthlyRatePercent: number;
   installmentAmountCents: number;
@@ -295,6 +345,47 @@ export interface BankSimulationItem {
   exceedsLimit: boolean;
   registeredLimitCents: number;
   overLimitCents: number;
+}
+
+export interface InstallmentScheduleRow {
+  installments: number;
+  installmentCents: number;
+  totalFinalCents: number;
+  totalInterestCents: number;
+  serviceFeeCents: number;
+  iofCents: number;
+  additionalCostCents: number;
+}
+
+/**
+ * Gera a tabela completa de parcelas de 1x até N vezes para um banco específico,
+ * permitindo ao usuário comparar cada parcela exatamente como no aplicativo bancário.
+ */
+export function generateFullInstallmentSchedule(
+  principalCents: number,
+  monthlyRatePercent: number,
+  serviceFeePercent: number,
+  options?: CalculateInstallmentOptions,
+  maxInstallments = 24
+): InstallmentScheduleRow[] {
+  const candidateNs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15, 18, 24];
+  const list: InstallmentScheduleRow[] = [];
+
+  for (const n of candidateNs) {
+    if (n > maxInstallments) continue;
+    const calc = calculateInstallment(principalCents, monthlyRatePercent, n, serviceFeePercent, options);
+    list.push({
+      installments: n,
+      installmentCents: calc.installmentCents,
+      totalFinalCents: calc.totalFinalCents,
+      totalInterestCents: calc.totalInterestCents,
+      serviceFeeCents: calc.serviceFeeCents,
+      iofCents: calc.iofTotalCents,
+      additionalCostCents: Math.max(0, calc.totalFinalCents - principalCents)
+    });
+  }
+
+  return list;
 }
 
 /**
@@ -308,6 +399,8 @@ export function simulateAllBanks(params: {
   limits: StoredLimitsMap;
   customRateMap?: Record<string, number>;
   customFeeMap?: Record<string, number>;
+  includeIOF?: boolean;
+  creditInterestFree?: boolean;
 }): {
   results: BankSimulationItem[];
   bestOption: BankSimulationItem;
@@ -320,7 +413,9 @@ export function simulateAllBanks(params: {
     simulationType,
     limits,
     customRateMap = {},
-    customFeeMap = {}
+    customFeeMap = {},
+    includeIOF = false,
+    creditInterestFree = false
   } = params;
 
   const results: BankSimulationItem[] = POPULAR_BANKS.map((bank) => {
@@ -334,14 +429,20 @@ export function simulateAllBanks(params: {
         : bank.pixServiceFeePercent;
     const fee = customFeeMap[bank.id] ?? defaultFee;
 
+    const calcOptions: CalculateInstallmentOptions = {
+      includeIOF,
+      creditInterestFree: simulationType === 'credito' && creditInterestFree
+    };
+
     const {
       installmentCents,
       totalFinalCents,
       totalInterestCents,
       serviceFeeCents,
+      iofTotalCents,
       financingBaseCents,
       cetMonthlyPercent
-    } = calculateInstallment(amountCents, rate, installments, fee);
+    } = calculateInstallment(amountCents, rate, installments, fee, calcOptions);
 
     const userBankLimits = limits[bank.id] || { creditLimitCents: 0, pixLimitCents: 0 };
     const registeredLimitCents =
@@ -362,6 +463,7 @@ export function simulateAllBanks(params: {
       originalAmountCents: amountCents,
       serviceFeePercent: fee,
       serviceFeeCents,
+      iofTotalCents,
       financingBaseCents,
       monthlyRatePercent: rate,
       installmentAmountCents: installmentCents,

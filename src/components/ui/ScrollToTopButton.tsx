@@ -52,7 +52,7 @@ export const ScrollToTopButton: React.FC = () => {
           transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
           whileHover={shouldReduceMotion ? {} : { scale: 1.08 }}
           whileTap={shouldReduceMotion ? {} : { scale: 0.92 }}
-          className="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-40 w-12 h-12 rounded-full bg-blue-royal dark:bg-sun text-white dark:text-blue-deep shadow-soft border-2 border-white dark:border-blue-deep flex items-center justify-center cursor-pointer transition-colors hover:bg-blue-deep dark:hover:bg-orange focus:outline-none focus:ring-4 focus:ring-sun/50"
+          className="fixed bottom-[172px] md:bottom-32 right-3 sm:right-6 z-40 w-11 h-11 md:w-12 md:h-12 rounded-full bg-blue-royal dark:bg-sun text-white dark:text-blue-deep shadow-[0_4px_16px_rgba(35,70,200,0.35)] dark:shadow-[0_4px_16px_rgba(248,213,107,0.35)] border-2 border-white dark:border-[#0D152D] flex items-center justify-center cursor-pointer transition-all hover:bg-blue-deep dark:hover:bg-orange focus:outline-none focus:ring-4 focus:ring-sun/50 hover-lift"
         >
           <ArrowUp size={22} strokeWidth={2.5} aria-hidden="true" />
         </motion.button>

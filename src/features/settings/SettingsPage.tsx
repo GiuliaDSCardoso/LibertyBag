@@ -17,7 +17,8 @@ import {
   FileText,
   LogOut,
   Compass,
-  Sparkles
+  Sparkles,
+  RotateCcw
 } from 'lucide-react';
 import { useAssistantStore } from '../assistant/useAssistantStore';
 import {
@@ -42,6 +43,7 @@ import {
 import { importTransactionsFromFileWithUndo } from './importService';
 import { SpacesAndSyncCard } from '../spaces/SpacesAndSyncCard';
 import { PwaSettingsCard } from '../../components/pwa/PwaSettingsCard';
+import { ResetAllMonthsModal } from '../transactions/ResetAllMonthsModal';
 
 export const SettingsPage: React.FC = () => {
   const { startTutorial, isMascotVisible, setMascotVisible } = useAssistantStore();
@@ -106,6 +108,7 @@ export const SettingsPage: React.FC = () => {
   const [showCategories, setShowCategories] = useState(false);
   const [quickCreateCatOpen, setQuickCreateCatOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [resetMonthsModalOpen, setResetMonthsModalOpen] = useState(false);
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -434,8 +437,29 @@ export const SettingsPage: React.FC = () => {
             </div>
           </Card>
 
-          {/* 6. Apagar meus dados */}
-          <Card variant="white" staggerIndex={5} className="space-y-4 border-red-soft/30">
+          {/* 6. Resetar Lançamentos de Todos os Meses */}
+          <Card variant="white" staggerIndex={5} className="space-y-4 border-orange/40">
+            <div className="flex items-center gap-2.5 text-orange">
+              <RotateCcw size={22} className="shrink-0" />
+              <h2 className="title-section text-blue-deep dark:text-cream">Resetar Todos os Meses</h2>
+            </div>
+            <p className="text-sm text-blue-deep/85 dark:text-cream/85 leading-relaxed">
+              Limpe todas as entradas e saídas de todos os meses de uma vez só (mantendo seu usuário, espaços e categorias intactos). Possui opção de Desfazer imediata.
+            </p>
+            <div className="pt-2">
+              <Button
+                variant="sun"
+                onClick={() => setResetMonthsModalOpen(true)}
+                className="inline-flex items-center gap-2 shadow-sm"
+              >
+                <RotateCcw size={18} />
+                <span>Resetar lançamentos de todos os meses</span>
+              </Button>
+            </div>
+          </Card>
+
+          {/* 7. Apagar todos os dados */}
+          <Card variant="white" staggerIndex={6} className="space-y-4 border-red-soft/30">
             <div className="flex items-center gap-2.5 text-red-soft">
               <Trash2 size={22} className="shrink-0" />
               <h2 className="title-section">Apagar todos os dados</h2>
@@ -483,6 +507,18 @@ export const SettingsPage: React.FC = () => {
         cancelLabel="Não, cancelar"
         onConfirm={handleWipeAllData}
         onCancel={() => setConfirmResetOpen(false)}
+      />
+
+      <ResetAllMonthsModal
+        open={resetMonthsModalOpen}
+        onClose={() => setResetMonthsModalOpen(false)}
+        spaceId={activeSpaceId}
+        onResetComplete={(res) => {
+          showUndoToast(
+            `Todos os meses foram resetados com sucesso! (${res.transactionsCount} lançamentos apagados)`,
+            res.undo
+          );
+        }}
       />
     </div>
   );

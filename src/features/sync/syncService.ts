@@ -8,6 +8,7 @@ import {
 } from '../../db/seed';
 import { getSupabaseClient } from '../../lib/supabase';
 import { useAppStore } from '../../app/store/useAppStore';
+import { deduplicateTransactions } from '../transactions/transactionService';
 
 const DEFAULT_CATEGORY_IDS = new Set(DEFAULT_CATEGORIES_SEED.map((c) => c.id));
 
@@ -176,6 +177,7 @@ export async function syncAllWithSupabase(): Promise<SyncResult> {
 
   try {
     await deduplicateLocalAndRemoteUsers();
+    await deduplicateTransactions();
 
     if (authUserId) {
       const localMembers = await db.space_members.toArray();
@@ -357,6 +359,9 @@ export async function syncAllWithSupabase(): Promise<SyncResult> {
         }
       }
     }
+
+    // 2.5 Limpa eventuais duplicatas de transações que possam ter vindo na sincronização
+    await deduplicateTransactions();
 
     // 3. SEGURANÇA E ISOLAMENTO DE DISPOSITIVO:
     // Se o aparelho contiver transações que pertencem a espaços de outra pessoa,

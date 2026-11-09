@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Trash2, Check, RefreshCw } from 'lucide-react';
+import { Trash2, Check, RefreshCw, Plus, Minus, Calendar } from 'lucide-react';
 import { db, type PaymentMethod, type TransactionRecord, type TransactionType } from '../../db/dexie';
 import { useAppStore } from '../../app/store/useAppStore';
-import { formatCentsToBRL, parseReaisStringToCents } from '../../lib/money';
+import { parseReaisStringToCents } from '../../lib/money';
 import { Button } from '../../components/ui/Button';
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { ModalShell } from '../../components/ui/ModalShell';
 import { CustomSelect } from '../../components/ui/CustomSelect';
+import { DeleteTransactionDialog } from './DeleteTransactionDialog';
 import {
-  softDeleteTransactionWithUndo,
-  updateTransactionWithUndo
+  deleteTransactionWithScope,
+  updateTransactionSeriesDurationWithUndo,
+  updateTransactionWithUndo,
+  type DeleteSeriesScope
 } from './transactionService';
 
 interface TransactionDetailModalProps {
@@ -37,6 +39,9 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   );
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [updateSeries, setUpdateSeries] = useState(true);
+  const [durationMonths, setDurationMonths] = useState<number>(1);
+  const [isDurationCustomized, setIsDurationCustomized] = useState(false);
+  const [makeRepeating, setMakeRepeating] = useState(false);
 
   const seriesCount = useLiveQuery(
     async () => {
@@ -66,6 +71,12 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
     0
   );
 
+  useEffect(() => {
+    if (!isDurationCustomized && seriesCount > 0) {
+      setDurationMonths(seriesCount);
+    }
+  }, [seriesCount, isDurationCustomized]);
+
   const categories = useLiveQuery(
     async () =>
       db.categories
@@ -87,6 +98,19 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
     const chosenCategory =
       categories.find((c) => c.id === categoryId)?.id || categories[0]?.id || transaction.categoryId;
 
+    let durationUndo: (() => Promise<void>) | null = null;
+    let durationChanged = false;
+
+    // Se alterou a quantidade de meses da série ou transformou em repetição
+    const targetMonthsToApply = seriesCount > 1 || makeRepeating ? durationMonths : 1;
+    if (targetMonthsToApply > 1 && targetMonthsToApply !== (seriesCount || 1)) {
+      const durRes = await updateTransactionSeriesDurationWithUndo(transaction.id, targetMonthsToApply);
+      if (durRes.addedCount > 0 || durRes.removedCount > 0) {
+        durationUndo = durRes.undo;
+        durationChanged = true;
+      }
+    }
+
     const res = await updateTransactionWithUndo(
       transaction.id,
       {
@@ -97,10 +121,15 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         description: description.trim(),
         paymentMethod
       },
-      { updateSeries: seriesCount > 1 ? updateSeries : false }
+      { updateSeries: (seriesCount > 1 || targetMonthsToApply > 1) ? updateSeries : false }
     );
 
-    if (res.isSeriesUpdate) {
+    if (durationChanged) {
+      showUndoToast(`Duração atualizada para ${targetMonthsToApply} meses!`, async () => {
+        await res.undo();
+        if (durationUndo) await durationUndo();
+      });
+    } else if (res.isSeriesUpdate) {
       showUndoToast(`Alteração salva em todos os ${res.updatedCount} meses!`, res.undo);
     } else {
       showUndoToast('Alteração salva!', res.undo);
@@ -108,10 +137,16 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
     onClose();
   };
 
-  const handleConfirmDelete = async () => {
-    const { undo } = await softDeleteTransactionWithUndo(transaction.id);
+  const handleConfirmDelete = async (scope: DeleteSeriesScope) => {
+    const res = await deleteTransactionWithScope(transaction.id, scope);
     setConfirmDeleteOpen(false);
-    showUndoToast('Lançamento apagado!', undo);
+    if (res.isSeriesDelete && res.scope === 'all') {
+      showUndoToast(`Todos os ${res.deletedCount} meses da repetição foram apagados!`, res.undo);
+    } else if (res.isSeriesDelete && res.scope === 'this_and_future') {
+      showUndoToast(`${res.deletedCount} meses futuros foram apagados!`, res.undo);
+    } else {
+      showUndoToast('Lançamento deste mês apagado!', res.undo);
+    }
     onClose();
   };
 
@@ -143,24 +178,126 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         }
       >
         <form onSubmit={handleSaveEdit} className="space-y-4">
-          {/* Aviso se o lançamento se repete em outros meses */}
-          {seriesCount > 1 && (
-            <div className="p-3.5 rounded-2xl bg-sun/20 dark:bg-sun/10 border-2 border-sun/60 flex items-start gap-3">
-              <RefreshCw size={20} className="text-orange shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <label className="flex items-center gap-2.5 cursor-pointer font-bold text-sm text-blue-deep dark:text-cream">
-                  <input
-                    type="checkbox"
-                    checked={updateSeries}
-                    onChange={(e) => setUpdateSeries(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-royal focus:ring-blue-royal"
-                  />
-                  <span>Alterar também em todos os {seriesCount} meses da repetição</span>
-                </label>
-                <p className="text-xs text-blue-deep/80 dark:text-cream/80 mt-1 leading-relaxed">
-                  Ao mudar a data (o dia do mês), valor ou categoria, todos os meses dessa repetição serão atualizados juntos automaticamente.
-                </p>
+          {/* Se o lançamento se repete em outros meses OU se o usuário quiser transformar em repetição */}
+          {seriesCount > 1 ? (
+            <div className="p-4 rounded-2xl bg-sun/20 dark:bg-sun/10 border-2 border-sun/60 space-y-3">
+              <div className="flex items-start gap-3">
+                <RefreshCw size={20} className="text-orange shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <label className="flex items-center gap-2.5 cursor-pointer font-bold text-sm text-blue-deep dark:text-cream">
+                    <input
+                      type="checkbox"
+                      checked={updateSeries}
+                      onChange={(e) => setUpdateSeries(e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-royal focus:ring-blue-royal"
+                    />
+                    <span>Alterar dados em todos os meses da repetição</span>
+                  </label>
+                  <p className="text-xs text-blue-deep/80 dark:text-cream/80 mt-1 leading-relaxed">
+                    Ao mudar valor, categoria ou dia do mês, todos os meses sincronizam automaticamente.
+                  </p>
+                </div>
               </div>
+
+              {/* Controle interativo da quantidade de meses que percorre */}
+              <div className="pt-2 border-t border-orange/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                <div>
+                  <span className="block text-xs font-bold text-blue-deep dark:text-cream">
+                    Duração da repetição:
+                  </span>
+                  <span className="text-[11px] text-blue-deep/75 dark:text-cream/75">
+                    {durationMonths > seriesCount ? (
+                      <span className="text-green-ok dark:text-[#4ADE80] font-bold">
+                        +{durationMonths - seriesCount} meses adicionais serão gerados
+                      </span>
+                    ) : durationMonths < seriesCount ? (
+                      <span className="text-orange font-bold">
+                        -{seriesCount - durationMonths} meses futuros serão encerrados
+                      </span>
+                    ) : (
+                      `Atualmente percorre ${seriesCount} meses no calendário`
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDurationCustomized(true);
+                      setDurationMonths((prev) => Math.max(1, prev - 1));
+                    }}
+                    className="w-8 h-8 rounded-lg bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-center justify-center font-bold text-blue-deep dark:text-cream hover:bg-blue-sky/30"
+                    aria-label="Diminuir meses"
+                  >
+                    <Minus size={14} />
+                  </button>
+
+                  <div className="flex items-center gap-1 bg-white dark:bg-[#152144] border-2 border-blue-royal/50 px-2.5 py-1 rounded-xl">
+                    <span className="font-extrabold text-sm text-blue-royal dark:text-sun">
+                      {durationMonths}
+                    </span>
+                    <span className="text-xs font-bold text-blue-deep/80 dark:text-cream/80">meses</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDurationCustomized(true);
+                      setDurationMonths((prev) => Math.min(120, prev + 1));
+                    }}
+                    className="w-8 h-8 rounded-lg bg-white dark:bg-[#152144] border border-blue-sky/60 flex items-center justify-center font-bold text-blue-deep dark:text-cream hover:bg-blue-sky/30"
+                    aria-label="Aumentar meses"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-2xl bg-blue-sky/20 dark:bg-white/5 border border-blue-sky/40 dark:border-white/10">
+              <label className="flex items-center gap-2.5 cursor-pointer font-bold text-xs sm:text-sm text-blue-deep dark:text-cream">
+                <input
+                  type="checkbox"
+                  checked={makeRepeating}
+                  onChange={(e) => {
+                    setMakeRepeating(e.target.checked);
+                    if (e.target.checked && durationMonths <= 1) {
+                      setDurationMonths(12);
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-blue-royal focus:ring-blue-royal"
+                />
+                <Calendar size={16} className="text-blue-royal dark:text-sun" />
+                <span>Repetir este lançamento nos próximos meses</span>
+              </label>
+
+              {makeRepeating && (
+                <div className="pt-2.5 mt-2 border-t border-blue-sky/30 flex items-center justify-between gap-2">
+                  <span className="text-xs text-blue-deep/80 dark:text-cream/80">
+                    Repetir por quantos meses?
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDurationMonths((prev) => Math.max(2, prev - 1))}
+                      className="w-7 h-7 rounded-lg bg-white dark:bg-[#152144] border border-blue-sky flex items-center justify-center font-bold"
+                    >
+                      <Minus size={12} />
+                    </button>
+                    <span className="font-extrabold text-xs text-blue-royal dark:text-sun px-1.5">
+                      {durationMonths} meses
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setDurationMonths((prev) => Math.min(60, prev + 1))}
+                      className="w-7 h-7 rounded-lg bg-white dark:bg-[#152144] border border-blue-sky flex items-center justify-center font-bold"
+                    >
+                      <Plus size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -287,16 +424,12 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
         </form>
       </ModalShell>
 
-      <ConfirmDialog
+      <DeleteTransactionDialog
         open={confirmDeleteOpen}
-        title="Quer mesmo apagar este item?"
-        description={`Você está apagando o registro de ${formatCentsToBRL(
-          transaction.amountCents
-        )}. Se mudar de ideia depois, ainda poderá tocar em "Desfazer".`}
-        confirmLabel="Sim, pode apagar"
-        cancelLabel="Não, deixar como está"
+        transaction={transaction}
+        seriesCount={seriesCount}
+        onClose={() => setConfirmDeleteOpen(false)}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setConfirmDeleteOpen(false)}
       />
     </>
   );

@@ -101,4 +101,39 @@ describe('LibertyBag — Simulador de Parcelamento (Fase 3.5)', () => {
     expect(picPayRealSim.financingBaseCents).toBe(104990); // R$ 1.049,90 base financiada
     expect(picPayRealSim.cetMonthlyPercent).toBeGreaterThan(6.0); // CET real superior aos juros nominais
   });
+
+  it('calcula parcelamento de cartão sem juros da loja (0% de acréscimo)', () => {
+    const res = calculateInstallment(120000, 4.99, 10, 0, { creditInterestFree: true });
+    expect(res.installmentCents).toBe(12000); // 10x de R$ 120,00
+    expect(res.totalFinalCents).toBe(120000);
+    expect(res.totalInterestCents).toBe(0);
+    expect(res.cetMonthlyPercent).toBe(0);
+  });
+
+  it('calcula IOF oficial brasileiro quando ativado', () => {
+    // R$ 1.000 em 6x com IOF
+    const res = calculateInstallment(100000, 5.0, 6, 0, { includeIOF: true });
+    expect(res.iofTotalCents).toBeGreaterThan(0);
+    // 0,38% de R$ 1.000 = R$ 3,80 (380 cents) + IOF diário
+    expect(res.iofTotalCents).toBeGreaterThanOrEqual(380);
+    expect(res.financingBaseCents).toBe(100000 + res.iofTotalCents);
+  });
+
+  it('gera grade completa de parcelas compatível com o app do PicPay', async () => {
+    const { generateFullInstallmentSchedule } = await import('../features/simulation/simulationService');
+    const schedule = generateFullInstallmentSchedule(100000, 5.493, 4.99);
+    const row1x = schedule.find(r => r.installments === 1);
+    const row6x = schedule.find(r => r.installments === 6);
+    expect(row1x).toBeDefined();
+    expect(row1x?.installmentCents).toBe(104990); // 1x de R$ 1.049,90
+    expect(row6x).toBeDefined();
+    expect(row6x?.installmentCents).toBe(21012); // 6x de R$ 210,12
+  });
+
+  it('inclui 99Pay na lista de bancos populares', () => {
+    const pay99 = POPULAR_BANKS.find(b => b.id === '99pay');
+    expect(pay99).toBeDefined();
+    expect(pay99?.name).toBe('99Pay');
+    expect(pay99?.pixMonthlyRate).toBe(4.49);
+  });
 });

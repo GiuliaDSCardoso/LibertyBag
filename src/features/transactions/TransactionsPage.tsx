@@ -9,7 +9,9 @@ import {
   Filter,
   LayoutGrid,
   Plus,
+  RotateCcw,
   Search,
+  ShieldCheck,
   Square,
   Table,
   Trash2,
@@ -36,8 +38,12 @@ import { CustomSelect } from '../../components/ui/CustomSelect';
 import { importTransactionsFromFileWithUndo } from '../settings/importService';
 import {
   bulkSoftDeleteTransactionsWithUndo,
-  softDeleteTransactionWithUndo
+  deleteTransactionWithScope,
+  deduplicateTransactions,
+  type DeleteSeriesScope
 } from './transactionService';
+import { DeleteTransactionDialog } from './DeleteTransactionDialog';
+import { ResetAllMonthsModal } from './ResetAllMonthsModal';
 import { TransactionDetailModal } from './TransactionDetailModal';
 import { TransactionsTableView } from './TransactionsTableView';
 
@@ -72,6 +78,62 @@ export const TransactionsPage: React.FC = () => {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBulkDeleteOpen, setConfirmBulkDeleteOpen] = useState(false);
+
+  // Exclusão individual inteligente com opções de série/repetição
+  const [deletingTx, setDeletingTx] = useState<TransactionRecord | null>(null);
+  const [deletingSeriesCount, setDeletingSeriesCount] = useState<number>(1);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [resetAllMonthsModalOpen, setResetAllMonthsModalOpen] = useState(false);
+
+  const handleRequestDeleteSingle = async (tx: TransactionRecord) => {
+    let count = 1;
+    if (tx.recurrenceId) {
+      count = await db.transactions
+        .where('spaceId')
+        .equals(tx.spaceId)
+        .and((t) => !t.deletedAt && t.recurrenceId === tx.recurrenceId)
+        .count();
+    } else if (tx.installment?.groupId) {
+      count = await db.transactions
+        .where('spaceId')
+        .equals(tx.spaceId)
+        .and((t) => !t.deletedAt && t.installment?.groupId === tx.installment?.groupId)
+        .count();
+    }
+    setDeletingSeriesCount(count);
+    setDeletingTx(tx);
+  };
+
+  const handleConfirmDeleteScoped = async (scope: DeleteSeriesScope) => {
+    if (!deletingTx) return;
+    const res = await deleteTransactionWithScope(deletingTx.id, scope);
+    setDeletingTx(null);
+    if (res.isSeriesDelete && res.scope === 'all') {
+      showUndoToast(`Todos os ${res.deletedCount} meses da repetição foram apagados!`, res.undo);
+    } else if (res.isSeriesDelete && res.scope === 'this_and_future') {
+      showUndoToast(`${res.deletedCount} meses futuros foram apagados!`, res.undo);
+    } else {
+      showUndoToast('Lançamento apagado!', res.undo);
+    }
+  };
+
+  const handleRunDeduplication = async () => {
+    if (isDeduplicating) return;
+    setIsDeduplicating(true);
+    try {
+      const res = await deduplicateTransactions(activeSpaceId);
+      if (res.duplicatesRemoved > 0) {
+        showUndoToast(
+          `${res.duplicatesRemoved} lançamento(s) duplicado(s) removido(s) com sucesso!`,
+          res.undo
+        );
+      } else {
+        showUndoToast('Tudo limpo! Nenhum lançamento duplicado encontrado no seu espaço.', async () => {});
+      }
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
 
   const period = useMemo(() => getPeriodRange(mode, refDate), [mode, refDate]);
 
@@ -205,23 +267,23 @@ export const TransactionsPage: React.FC = () => {
       />
 
       {/* Cabeçalho */}
-      <header className="flex flex-wrap items-start justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
-        <div className="min-w-0 flex-1 pr-2">
-          <h1 className="title-page text-blue-royal dark:text-sun">
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 pt-1 sm:pt-2">
+        <div className="w-full sm:w-auto min-w-0 pr-16 sm:pr-0">
+          <h1 className="title-page text-blue-royal dark:text-sun whitespace-nowrap">
             Lançamentos
           </h1>
-          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-1 sm:mt-2">
+          <p className="text-sm sm:text-base text-blue-deep/85 dark:text-cream/85 mt-0.5 sm:mt-1">
             Tudo que entrou e saiu, organizado por dia.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto justify-start sm:justify-end">
           {/* Alternador de Modo de Visualização: Cartões vs Tabela Excel */}
-          <div className="inline-flex items-center p-1 bg-white dark:bg-[#152144] rounded-xl border border-blue-sky/70 shadow-xs">
+          <div className="inline-flex items-center p-1 bg-white/90 dark:bg-[#152144]/90 backdrop-blur-md rounded-2xl border-2 border-blue-sky/70 dark:border-white/10 shadow-sm">
             <button
               type="button"
               onClick={() => handleSetViewMode('cards')}
-              className={`min-h-[38px] px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`min-h-[38px] px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 viewMode === 'cards'
                   ? 'bg-blue-royal text-white shadow-xs'
                   : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-blue-royal/30'
@@ -234,7 +296,7 @@ export const TransactionsPage: React.FC = () => {
             <button
               type="button"
               onClick={() => handleSetViewMode('table')}
-              className={`min-h-[38px] px-3 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`min-h-[38px] px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 viewMode === 'table'
                   ? 'bg-blue-royal text-white shadow-xs'
                   : 'text-blue-deep dark:text-cream hover:bg-cream dark:hover:bg-blue-royal/30'
@@ -247,12 +309,10 @@ export const TransactionsPage: React.FC = () => {
           </div>
 
           {filteredTransactions.length > 0 && (
-            <Button
-              variant={isSelectMode ? 'sun' : 'danger'}
-              size="md"
+            <button
+              type="button"
               title={isSelectMode ? 'Cancelar remoção' : 'Remover lançamentos'}
               aria-label={isSelectMode ? 'Cancelar remoção' : 'Remover lançamentos'}
-              className="max-sm:min-h-[42px] max-sm:w-[42px] max-sm:h-[42px] max-sm:p-0 max-sm:rounded-full"
               onClick={() => {
                 setIsSelectMode((v) => {
                   const next = !v;
@@ -260,24 +320,53 @@ export const TransactionsPage: React.FC = () => {
                   return next;
                 });
               }}
+              className={`h-[42px] px-3.5 max-sm:px-0 max-sm:w-[42px] rounded-full font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 border-2 ${
+                isSelectMode
+                  ? 'bg-gradient-to-br from-sun to-[#F59E0B] text-blue-deep border-white/60 dark:border-white/20 shadow-sm hover:scale-105'
+                  : 'bg-gradient-to-br from-red-soft to-[#C93B3B] text-white border-white/60 dark:border-white/20 shadow-[0_3px_10px_rgba(217,83,79,0.3)] hover:scale-105'
+              }`}
             >
               {isSelectMode ? <X size={18} /> : <Trash2 size={18} />}
               <span className="hidden sm:inline">{isSelectMode ? 'Cancelar' : 'Remover'}</span>
-            </Button>
+            </button>
           )}
 
-          <Button
-            variant="secondary"
-            size="md"
+          <button
+            type="button"
             disabled={isImporting}
             title="Importar lançamentos CSV ou PDF"
             aria-label="Importar lançamentos CSV ou PDF"
-            className="max-sm:min-h-[42px] max-sm:w-[42px] max-sm:h-[42px] max-sm:p-0 max-sm:rounded-full"
             onClick={() => fileInputRef.current?.click()}
+            className="h-[42px] px-3.5 max-sm:px-0 max-sm:w-[42px] rounded-full font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-gradient-to-br from-white via-blue-sky/35 to-blue-sky/70 dark:from-[#1E2E5D] dark:via-[#162348] dark:to-[#0D152D] text-blue-royal dark:text-sun border-2 border-blue-royal/40 dark:border-sun/40 shadow-[0_3px_10px_rgba(35,70,200,0.18)] hover:shadow-[0_5px_14px_rgba(35,70,200,0.28)] hover:scale-105 cursor-pointer disabled:opacity-50"
           >
             <Upload size={18} />
             <span className="hidden sm:inline">{isImporting ? 'Lendo...' : 'Importar'}</span>
-          </Button>
+          </button>
+
+          <button
+            type="button"
+            disabled={isDeduplicating}
+            title="Verificar e limpar lançamentos duplicados"
+            aria-label="Verificar e limpar lançamentos duplicados"
+            onClick={handleRunDeduplication}
+            className="h-[42px] px-3.5 max-sm:px-0 max-sm:w-[42px] rounded-full font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-gradient-to-br from-white via-[#E8FAF1] to-[#C9F3DE] dark:from-[#143425] dark:via-[#0F281D] dark:to-[#0A1A13] text-green-ok dark:text-[#4ADE80] border-2 border-green-ok/40 dark:border-[#4ADE80]/40 shadow-[0_3px_10px_rgba(46,158,107,0.18)] hover:shadow-[0_5px_14px_rgba(46,158,107,0.28)] hover:scale-105 cursor-pointer disabled:opacity-50"
+          >
+            <ShieldCheck size={18} />
+            <span className="hidden sm:inline">
+              {isDeduplicating ? 'Verificando...' : 'Sem duplicatas'}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            title="Resetar lançamentos de todos os meses"
+            aria-label="Resetar lançamentos de todos os meses"
+            onClick={() => setResetAllMonthsModalOpen(true)}
+            className="h-[42px] px-3.5 max-sm:px-0 max-sm:w-[42px] rounded-full font-extrabold text-xs sm:text-sm inline-flex items-center justify-center gap-1.5 transition-all active:scale-95 bg-gradient-to-br from-white via-orange/15 to-orange/30 dark:from-[#331C0E] dark:via-[#26150B] dark:to-[#170C06] text-orange dark:text-sun border-2 border-orange/40 dark:border-sun/40 shadow-[0_3px_10px_rgba(255,117,24,0.18)] hover:shadow-[0_5px_14px_rgba(255,117,24,0.28)] hover:scale-105 cursor-pointer"
+          >
+            <RotateCcw size={18} />
+            <span className="hidden sm:inline">Resetar meses</span>
+          </button>
 
           <HelpButton
             title="Seus Lançamentos"
@@ -540,10 +629,7 @@ export const TransactionsPage: React.FC = () => {
                 });
               }}
               onOpenDetail={(tx) => setSelectedTx(tx)}
-              onDeleteSingle={async (tx) => {
-                const { undo } = await softDeleteTransactionWithUndo(tx.id);
-                showUndoToast(`Lançamento "${tx.description || 'sem nome'}" apagado!`, undo);
-              }}
+              onDeleteSingle={(tx) => void handleRequestDeleteSingle(tx)}
             />
           ) : (
             <div className="space-y-6">
@@ -667,6 +753,60 @@ export const TransactionsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Barra Flutuante de Ação no Rodapé para Remoção sem precisar voltar ao topo */}
+      <AnimatePresence>
+        {isSelectMode && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+            className="fixed bottom-20 md:bottom-8 left-1/2 -translate-x-1/2 z-40 w-[94%] max-w-xl bg-white/95 dark:bg-[#152144]/95 backdrop-blur-md rounded-2xl border-2 border-red-soft/70 shadow-[0_8px_30px_rgba(217,83,79,0.35)] p-3 sm:p-3.5 flex items-center justify-between gap-2.5"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedIds.size === filteredTransactions.length) {
+                    setSelectedIds(new Set());
+                  } else {
+                    setSelectedIds(new Set(filteredTransactions.map((t) => t.id)));
+                  }
+                }}
+                className="h-9 px-3 rounded-xl bg-cream dark:bg-white/10 text-blue-deep dark:text-cream text-xs font-bold border border-blue-sky/70 dark:border-white/20 shrink-0 hover:bg-blue-sky/30 transition-colors"
+              >
+                {selectedIds.size === filteredTransactions.length ? 'Desmarcar' : 'Marcar todos'}
+              </button>
+              <span className="text-xs sm:text-sm font-extrabold text-blue-deep dark:text-cream truncate">
+                <span className="text-red-soft font-black">{selectedIds.size}</span> selecionado(s)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSelectMode(false);
+                  setSelectedIds(new Set());
+                }}
+                className="h-9 px-3 text-xs font-bold text-blue-deep/75 dark:text-cream/75 hover:text-blue-deep dark:hover:text-white transition-colors"
+              >
+                Cancelar
+              </button>
+              <Button
+                variant="danger"
+                disabled={selectedIds.size === 0}
+                onClick={() => setConfirmBulkDeleteOpen(true)}
+                className="shadow-md h-9 !min-h-0 text-xs sm:text-sm font-extrabold px-3.5"
+              >
+                <Trash2 size={15} />
+                <span>Apagar {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</span>
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Modal de Confirmação de Remoção em Massa */}
       <ConfirmDialog
         open={confirmBulkDeleteOpen}
@@ -696,6 +836,26 @@ export const TransactionsPage: React.FC = () => {
         key={selectedTx?.id || 'closed'}
         transaction={selectedTx}
         onClose={() => setSelectedTx(null)}
+      />
+
+      <DeleteTransactionDialog
+        open={Boolean(deletingTx)}
+        transaction={deletingTx}
+        seriesCount={deletingSeriesCount}
+        onClose={() => setDeletingTx(null)}
+        onConfirm={handleConfirmDeleteScoped}
+      />
+
+      <ResetAllMonthsModal
+        open={resetAllMonthsModalOpen}
+        onClose={() => setResetAllMonthsModalOpen(false)}
+        spaceId={activeSpaceId}
+        onResetComplete={(res) => {
+          showUndoToast(
+            `Todos os meses foram resetados com sucesso! (${res.transactionsCount} lançamentos apagados)`,
+            res.undo
+          );
+        }}
       />
     </div>
   );

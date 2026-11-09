@@ -173,22 +173,22 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
         </span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[760px]">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="w-full text-left border-collapse min-w-[1100px]">
           <thead>
             <tr className="bg-cream/60 dark:bg-blue-deep/80 border-b border-blue-sky/60 dark:border-blue-sky/30 text-xs font-bold text-blue-deep dark:text-cream select-none uppercase tracking-wider">
               {isSelectMode && (
-                <th className="py-3 px-3 w-10 text-center">
+                <th className="py-3 px-3 w-12 text-center">
                   <span className="sr-only">Selecionar</span>
                 </th>
               )}
-              <th className="py-3 px-3.5 w-36">Data</th>
-              <th className="py-3 px-3 w-28 text-center">Tipo</th>
-              <th className="py-3 px-3.5 min-w-[180px]">Descrição / Detalhe</th>
-              <th className="py-3 px-3.5 w-44">Categoria</th>
-              <th className="py-3 px-3.5 w-36">Pagamento</th>
-              <th className="py-3 px-3.5 w-36 text-right">Valor</th>
-              <th className="py-3 px-3 w-24 text-center">Ações</th>
+              <th className="py-3 px-4 w-44 min-w-[160px]">Data</th>
+              <th className="py-3 px-3.5 w-32 min-w-[120px] text-center">Tipo</th>
+              <th className="py-3 px-4 min-w-[240px]">Descrição / Detalhe</th>
+              <th className="py-3 px-4 w-52 min-w-[190px]">Categoria</th>
+              <th className="py-3 px-4 w-48 min-w-[180px]">Pagamento</th>
+              <th className="py-3 px-4 w-40 min-w-[140px] text-right">Valor</th>
+              <th className="py-3 px-3.5 w-28 min-w-[100px] text-center">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-blue-sky/40 dark:divide-blue-sky/15 text-sm">
@@ -280,7 +280,7 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                           setDraftDesc((prev) => ({ ...prev, [tx.id]: tx.description }));
                           setEditingCell({ id: tx.id, field: 'desc' });
                         }}
-                        className="px-2 py-1 rounded-lg border border-transparent hover:border-blue-sky hover:bg-white/80 dark:hover:bg-blue-deep/70 cursor-text font-bold text-sm truncate max-w-[280px]"
+                        className="px-2 py-1 rounded-lg border border-transparent hover:border-blue-sky hover:bg-white/80 dark:hover:bg-blue-deep/70 cursor-text font-bold text-sm truncate"
                         title="Clique duas vezes para editar a descrição"
                       >
                         {tx.description || <span className="opacity-40 italic">Sem descrição</span>}
@@ -289,7 +289,7 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                   </td>
 
                   {/* 4. Categoria */}
-                  <td className="py-2 px-3 min-w-[150px]">
+                  <td className="py-2 px-3.5 min-w-[190px]">
                     <CustomSelect
                       value={tx.categoryId}
                       onChange={(newCatId) => handleChangeCategory(tx, newCatId)}
@@ -305,7 +305,7 @@ export const TransactionsTableView: React.FC<TransactionsTableViewProps> = ({
                   </td>
 
                   {/* 5. Forma de Pagamento */}
-                  <td className="py-2 px-3 min-w-[140px]">
+                  <td className="py-2 px-3.5 min-w-[180px]">
                     <CustomSelect
                       value={tx.paymentMethod || 'pix'}
                       onChange={(newPm) => handleChangePaymentMethod(tx, newPm as PaymentMethod)}

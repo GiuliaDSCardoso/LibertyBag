@@ -22,6 +22,7 @@ import { CustomSelect } from '../../components/ui/CustomSelect';
 import {
   POPULAR_BANKS,
   simulateAllBanks,
+  generateFullInstallmentSchedule,
   getSavedBankLimits,
   saveBankLimits,
   type SimulationType,
@@ -53,8 +54,10 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
   const [amountInput, setAmountInput] = useState<string>(
     (initialAmountCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   );
-  const [installments, setInstallments] = useState<number>(12);
-  const [selectedBankId, setSelectedBankId] = useState<string>('nubank');
+  const [installments, setInstallments] = useState<number>(6);
+  const [selectedBankId, setSelectedBankId] = useState<string>('picpay');
+  const [creditInterestFree, setCreditInterestFree] = useState<boolean>(true);
+  const [includeIOF, setIncludeIOF] = useState<boolean>(false);
 
   // Ajustes de taxa customizada e limites salvos
   const [customRateMap, setCustomRateMap] = useState<Record<string, number>>({});
@@ -107,9 +110,11 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
       simulationType,
       limits: limitsMap,
       customRateMap,
-      customFeeMap
+      customFeeMap,
+      includeIOF,
+      creditInterestFree: simulationType === 'credito' && creditInterestFree
     });
-  }, [amountCents, installments, simulationType, limitsMap, customRateMap, customFeeMap]);
+  }, [amountCents, installments, simulationType, limitsMap, customRateMap, customFeeMap, includeIOF, creditInterestFree]);
 
   // Item do banco atualmente selecionado
   const currentBankItem = useMemo(() => {
@@ -118,6 +123,20 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
       simulation.bestOption
     );
   }, [simulation, selectedBank]);
+
+  // Tabela completa de parcelas calculada exatamente para este banco
+  const fullSchedule = useMemo(() => {
+    return generateFullInstallmentSchedule(
+      amountCents,
+      currentRate,
+      currentServiceFee,
+      {
+        includeIOF,
+        creditInterestFree: simulationType === 'credito' && creditInterestFree
+      },
+      24
+    );
+  }, [amountCents, currentRate, currentServiceFee, includeIOF, simulationType, creditInterestFree]);
 
   // Salvar limites editados pelo modal
   const handleSaveLimits = (newLimits: StoredLimitsMap) => {
@@ -195,6 +214,36 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                   <span>Pix Parcelado</span>
                 </button>
               </div>
+
+              {/* Sub-opção de Cartão de Crédito: Sem juros da loja vs Com juros do emissor */}
+              {simulationType === 'credito' && (
+                <div className="pt-1">
+                  <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-blue-sky/20 dark:bg-white/5 border border-blue-sky/30 dark:border-white/10 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setCreditInterestFree(true)}
+                      className={`py-2 px-3 rounded-lg font-bold transition-all ${
+                        creditInterestFree
+                          ? 'bg-blue-royal text-white shadow-xs'
+                          : 'text-blue-deep/75 dark:text-cream/75 hover:bg-white/40 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      Sem Juros (Loja / 0%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreditInterestFree(false)}
+                      className={`py-2 px-3 rounded-lg font-bold transition-all ${
+                        !creditInterestFree
+                          ? 'bg-blue-royal text-white shadow-xs'
+                          : 'text-blue-deep/75 dark:text-cream/75 hover:bg-white/40 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      Com Juros do Emissor
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Valor da Compra (R$) */}
@@ -278,8 +327,36 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                   </span>
                 </button>
                 <span className="font-extrabold text-blue-deep/75 dark:text-cream/75">
-                  Taxa ativa: {currentRate.toFixed(2)}% a.m. {currentServiceFee > 0 ? `(+${currentServiceFee.toFixed(2)}% taxa)` : ''}
+                  Taxa ativa:{' '}
+                  {simulationType === 'credito' && creditInterestFree
+                    ? '0,00% (Sem juros da loja)'
+                    : `${currentRate.toFixed(2)}% a.m.${currentServiceFee > 0 ? ` (+${currentServiceFee.toFixed(2)}% taxa)` : ''}`}
                 </span>
+              </div>
+
+              {/* Toggle de IOF oficial */}
+              <div className="pt-1.5 flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIncludeIOF(!includeIOF)}
+                  className="inline-flex items-center gap-1.5 text-blue-deep/80 dark:text-cream/80 hover:text-blue-royal dark:hover:text-sun font-semibold transition-colors cursor-pointer"
+                >
+                  <span
+                    className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold ${
+                      includeIOF
+                        ? 'bg-orange border-orange text-white'
+                        : 'border-blue-sky/60 dark:border-white/20'
+                    }`}
+                  >
+                    {includeIOF ? '✓' : ''}
+                  </span>
+                  <span>Incluir IOF oficial na simulação (0,38% + 0,0082%/dia)</span>
+                </button>
+                {includeIOF && currentBankItem.iofTotalCents > 0 && (
+                  <span className="text-[11px] font-bold text-orange">
+                    +{formatCentsToBRL(currentBankItem.iofTotalCents)} de IOF
+                  </span>
+                )}
               </div>
 
               {isEditingRate && (
@@ -546,6 +623,80 @@ export const InstallmentSimulator: React.FC<InstallmentSimulatorProps> = ({
                 <span>Usar este parcelamento no lançamento</span>
               </Button>
             )}
+          </div>
+
+          {/* 2.5 Tabela Estilo App Oficial (Opções reais de parcelas) */}
+          <div className="bg-white dark:bg-[#152144] p-5 sm:p-6 rounded-card border-2 border-blue-sky/70 dark:border-white/10 shadow-card space-y-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-blue-royal-ink dark:text-sun">
+                <CreditCard size={18} />
+                <h3 className="font-bold text-sm sm:text-base">
+                  Opções de Parcelas no {selectedBank.shortName}
+                </h3>
+              </div>
+              <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-blue-sky/30 dark:bg-white/10 text-blue-deep dark:text-cream">
+                {fullSchedule.length} opções
+              </span>
+            </div>
+
+            <p className="text-xs text-blue-deep/75 dark:text-cream/75">
+              Toque em qualquer parcela para selecioná-la. Valores idênticos aos exibidos no app oficial do banco.
+            </p>
+
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin">
+              {fullSchedule.map((row) => {
+                const isSelected = row.installments === installments;
+                return (
+                  <button
+                    key={row.installments}
+                    type="button"
+                    onClick={() => setInstallments(row.installments)}
+                    className={`w-full p-3 sm:p-3.5 rounded-2xl border-2 transition-all flex items-center justify-between gap-3 text-left cursor-pointer active:scale-[0.99] ${
+                      isSelected
+                        ? 'bg-blue-sky/25 dark:bg-[#182752] border-blue-royal dark:border-sun shadow-sm'
+                        : 'bg-white/70 dark:bg-[#0D152D]/60 hover:bg-blue-sky/15 dark:hover:bg-white/5 border-blue-sky/30 dark:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected
+                            ? 'border-blue-royal dark:border-sun bg-blue-royal dark:bg-sun'
+                            : 'border-blue-deep/40 dark:border-cream/40 bg-transparent'
+                        }`}
+                      >
+                        {isSelected && <div className="w-2 h-2 rounded-full bg-white dark:bg-blue-deep" />}
+                      </div>
+                      <div>
+                        <span className="font-serif italic font-bold text-base sm:text-lg block text-blue-deep dark:text-cream">
+                          {row.installments}x de {formatCentsToBRL(row.installmentCents)}
+                        </span>
+                        <span className="text-[11px] text-blue-deep/70 dark:text-cream/70 block">
+                          Total: {formatCentsToBRL(row.totalFinalCents)}
+                          {row.additionalCostCents > 0 && (
+                            <span className="text-red-soft dark:text-sun/90 ml-1 font-semibold">
+                              (+{formatCentsToBRL(row.additionalCostCents)} de juros/taxas)
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${
+                          isSelected
+                            ? 'bg-blue-royal text-white dark:bg-sun dark:text-blue-deep'
+                            : 'bg-cream dark:bg-white/10 text-blue-deep/75 dark:text-cream/75'
+                        }`}
+                      >
+                        {row.installments === 1 ? 'À vista' : `${row.installments} parcelas`}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* 3. Card de Recomendação Inteligente LibertyBag */}

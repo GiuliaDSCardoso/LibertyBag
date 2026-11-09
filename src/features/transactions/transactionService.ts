@@ -1,12 +1,15 @@
 import { addMonths, format, parseISO } from 'date-fns';
 import {
   db,
+  type BudgetRecord,
   type PaymentMethod,
+  type RecurrenceRecord,
   type TransactionRecord,
   type TransactionType
 } from '../../db/dexie';
 import { DEFAULT_SPACE_ID, DEFAULT_USER_ID } from '../../db/seed';
 import { formatCentsToBRL } from '../../lib/money';
+import { getSupabaseClient } from '../../lib/supabase';
 import { syncAllWithSupabase } from '../sync/syncService';
 
 export type InterestInputMode = 'total_with_interest' | 'installment_value';
@@ -170,6 +173,21 @@ function generateId(): string {
   return `id-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+// Janela deslizante de idempotência contra cliques repetidos / duplo envio rápido (4 segundos)
+interface RecentSubmission {
+  signature: string;
+  result: CreateTransactionResult;
+  timestamp: number;
+}
+const recentSubmissions: RecentSubmission[] = [];
+
+function cleanOldSubmissions(): void {
+  const now = Date.now();
+  while (recentSubmissions.length > 0 && now - recentSubmissions[0].timestamp > 4000) {
+    recentSubmissions.shift();
+  }
+}
+
 /**
  * Cria um lançamento (à vista, parcelado no crédito/pix parcelado, com ou sem entrada,
  * com ou sem juros, ou repetindo em outros meses) em centavos no Dexie
@@ -182,6 +200,14 @@ export async function createTransactionWithUndo(
   const userId = input.userId || DEFAULT_USER_ID;
   const spaceId = input.spaceId || DEFAULT_SPACE_ID;
   const cleanDescription = (input.description || '').trim();
+
+  cleanOldSubmissions();
+  const signature = `${spaceId}|${userId}|${input.amountCents}|${input.type}|${input.categoryId}|${input.date}|${cleanDescription}|${input.paymentMethod || ''}|${input.repeatMonthly ? 'rep' : 'no'}|${input.installmentsCount || 1}|${input.hasDownPayment ? input.downPaymentCents : 0}`;
+
+  const existingMatch = recentSubmissions.find((s) => s.signature === signature);
+  if (existingMatch && Date.now() - existingMatch.timestamp < 3500) {
+    return existingMatch.result;
+  }
 
   const installmentsTotal =
     input.installmentsCount && input.installmentsCount > 1
@@ -379,7 +405,9 @@ export async function createTransactionWithUndo(
     });
   };
 
-  return { createdIds, recurrenceId, undo };
+  const finalResult: CreateTransactionResult = { createdIds, recurrenceId, undo };
+  recentSubmissions.push({ signature, result: finalResult, timestamp: Date.now() });
+  return finalResult;
 }
 
 export interface UpdateTransactionOptions {
@@ -590,6 +618,502 @@ export async function bulkSoftDeleteTransactionsWithUndo(
         updatedAt: undoTime
       }));
       await db.transactions.bulkPut(restored);
+      void syncAllWithSupabase();
+    }
+  };
+}
+
+export type DeleteSeriesScope = 'only_this' | 'this_and_future' | 'all';
+
+export interface DeleteTransactionResult {
+  deletedCount: number;
+  isSeriesDelete: boolean;
+  scope: DeleteSeriesScope;
+  undo: () => Promise<void>;
+}
+
+/**
+ * Apaga um lançamento com controle inteligente de escopo para repetições e parcelamentos:
+ * - 'only_this': Apaga apenas o mês selecionado.
+ * - 'this_and_future': Apaga deste mês em diante, mantendo o histórico dos meses passados.
+ * - 'all': Apaga todos os meses da repetição/parcelamento.
+ */
+export async function deleteTransactionWithScope(
+  id: string,
+  scope: DeleteSeriesScope = 'only_this'
+): Promise<DeleteTransactionResult> {
+  const current = await db.transactions.get(id);
+  if (!current) {
+    return {
+      deletedCount: 0,
+      isSeriesDelete: false,
+      scope,
+      undo: async () => {}
+    };
+  }
+
+  const now = new Date().toISOString();
+
+  // Busca todos os lançamentos que pertencem à mesma série
+  let siblings: TransactionRecord[] = [];
+  if (current.recurrenceId) {
+    siblings = await db.transactions
+      .where('spaceId')
+      .equals(current.spaceId)
+      .and((t) => !t.deletedAt && t.recurrenceId === current.recurrenceId)
+      .toArray();
+  } else if (current.installment?.groupId) {
+    siblings = await db.transactions
+      .where('spaceId')
+      .equals(current.spaceId)
+      .and((t) => !t.deletedAt && t.installment?.groupId === current.installment?.groupId)
+      .toArray();
+  }
+
+  // Se não é repetido ou há só 1 item, escopo é apenas este
+  if (siblings.length <= 1) {
+    await db.transactions.update(id, {
+      deletedAt: now,
+      updatedAt: now
+    });
+    void syncAllWithSupabase();
+
+    return {
+      deletedCount: 1,
+      isSeriesDelete: false,
+      scope: 'only_this',
+      undo: async () => {
+        await db.transactions.update(id, {
+          deletedAt: null,
+          updatedAt: new Date().toISOString()
+        });
+        void syncAllWithSupabase();
+      }
+    };
+  }
+
+  let toDelete: TransactionRecord[] = [];
+  if (scope === 'only_this') {
+    toDelete = [current];
+  } else if (scope === 'this_and_future') {
+    toDelete = siblings.filter((s) => s.date >= current.date);
+  } else {
+    // 'all'
+    toDelete = siblings;
+  }
+
+  const deletedRecords = toDelete.map((t) => ({
+    ...t,
+    deletedAt: now,
+    updatedAt: now
+  }));
+
+  let previousRecurrence: RecurrenceRecord | undefined;
+  if (current.recurrenceId && (scope === 'all' || scope === 'this_and_future')) {
+    previousRecurrence = await db.recurrences.get(current.recurrenceId);
+  }
+
+  await db.transaction('rw', [db.transactions, db.recurrences], async () => {
+    await db.transactions.bulkPut(deletedRecords);
+
+    if (current.recurrenceId && (scope === 'all' || scope === 'this_and_future')) {
+      await db.recurrences.update(current.recurrenceId, {
+        active: false,
+        deletedAt: scope === 'all' ? now : null,
+        updatedAt: now
+      });
+    }
+  });
+
+  void syncAllWithSupabase();
+
+  return {
+    deletedCount: toDelete.length,
+    isSeriesDelete: true,
+    scope,
+    undo: async () => {
+      const undoTime = new Date().toISOString();
+      const restored = toDelete.map((t) => ({
+        ...t,
+        deletedAt: null,
+        updatedAt: undoTime
+      }));
+
+      await db.transaction('rw', [db.transactions, db.recurrences], async () => {
+        await db.transactions.bulkPut(restored);
+        if (previousRecurrence) {
+          await db.recurrences.put({
+            ...previousRecurrence,
+            updatedAt: undoTime
+          });
+        }
+      });
+      void syncAllWithSupabase();
+    }
+  };
+}
+
+export interface UpdateSeriesDurationResult {
+  previousCount: number;
+  newCount: number;
+  addedCount: number;
+  removedCount: number;
+  undo: () => Promise<void>;
+}
+
+/**
+ * Altera a quantidade de meses que um lançamento recorrente ou parcelado percorre.
+ * Se aumentar a duração: cria novos meses mantendo o padrão da série.
+ * Se encurtar a duração: apaga logicamente os meses excedentes mais futuros.
+ */
+export async function updateTransactionSeriesDurationWithUndo(
+  id: string,
+  newTotalMonths: number
+): Promise<UpdateSeriesDurationResult> {
+  const current = await db.transactions.get(id);
+  if (!current) {
+    return { previousCount: 0, newCount: 0, addedCount: 0, removedCount: 0, undo: async () => {} };
+  }
+
+  const targetMonths = Math.max(1, Math.min(360, Math.round(newTotalMonths)));
+  const now = new Date().toISOString();
+
+  let siblings: TransactionRecord[] = [];
+  if (current.recurrenceId) {
+    siblings = await db.transactions
+      .where('spaceId')
+      .equals(current.spaceId)
+      .and((t) => !t.deletedAt && t.recurrenceId === current.recurrenceId)
+      .toArray();
+  } else if (current.installment?.groupId) {
+    siblings = await db.transactions
+      .where('spaceId')
+      .equals(current.spaceId)
+      .and((t) => !t.deletedAt && t.installment?.groupId === current.installment?.groupId)
+      .toArray();
+  } else {
+    siblings = [current];
+  }
+
+  siblings.sort((a, b) => a.date.localeCompare(b.date));
+  const previousCount = siblings.length;
+
+  if (previousCount === targetMonths) {
+    return { previousCount, newCount: targetMonths, addedCount: 0, removedCount: 0, undo: async () => {} };
+  }
+
+  if (targetMonths < previousCount) {
+    const toKeep = siblings.slice(0, targetMonths);
+    const toRemove = siblings.slice(targetMonths);
+    const removedWithDeleted = toRemove.map((t) => ({
+      ...t,
+      deletedAt: now,
+      updatedAt: now
+    }));
+
+    const updatedKeep = toKeep.map((t) => {
+      if (t.installment) {
+        return {
+          ...t,
+          installment: {
+            ...t.installment,
+            total: targetMonths
+          },
+          updatedAt: now
+        };
+      }
+      return t;
+    });
+
+    await db.transactions.bulkPut([...removedWithDeleted, ...updatedKeep]);
+    void syncAllWithSupabase();
+
+    return {
+      previousCount,
+      newCount: targetMonths,
+      addedCount: 0,
+      removedCount: toRemove.length,
+      undo: async () => {
+        const undoTime = new Date().toISOString();
+        const restored = siblings.map((s) => ({
+          ...s,
+          deletedAt: null,
+          updatedAt: undoTime
+        }));
+        await db.transactions.bulkPut(restored);
+        void syncAllWithSupabase();
+      }
+    };
+  }
+
+  // targetMonths > previousCount: Adiciona meses futuros
+  const addedCount = targetMonths - previousCount;
+  const lastSibling = siblings[siblings.length - 1];
+  const firstSibling = siblings[0];
+
+  const [, , firstDayStr] = firstSibling.date.split('-');
+  const desiredDay = Number(firstDayStr);
+
+  const seriesRecurrenceId = current.recurrenceId || generateId();
+  const seriesGroupId = current.installment?.groupId || (current.installment ? generateId() : undefined);
+
+  const updatedFirstIfNeeded: TransactionRecord[] = [];
+  if (!current.recurrenceId && !current.installment) {
+    updatedFirstIfNeeded.push({
+      ...current,
+      recurrenceId: seriesRecurrenceId,
+      updatedAt: now
+    });
+  }
+
+  const newRecords: TransactionRecord[] = [];
+  const baseDateForAddition = parseISO(lastSibling.date);
+
+  for (let i = 1; i <= addedCount; i++) {
+    const nextMonthObj = addMonths(baseDateForAddition, i);
+    const y = nextMonthObj.getFullYear();
+    const m = nextMonthObj.getMonth() + 1;
+    const maxDays = new Date(y, m, 0).getDate();
+    const actualDay = Math.min(desiredDay, maxDays);
+    const newDateStr = `${y}-${String(m).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
+
+    const newId = generateId();
+    newRecords.push({
+      id: newId,
+      userId: current.userId,
+      spaceId: current.spaceId,
+      amountCents: current.amountCents,
+      type: current.type,
+      categoryId: current.categoryId,
+      date: newDateStr,
+      description: current.description,
+      paymentMethod: current.paymentMethod,
+      recurrenceId: seriesRecurrenceId,
+      installment: current.installment
+        ? {
+            ...current.installment,
+            current: previousCount + i,
+            total: targetMonths,
+            groupId: seriesGroupId || current.installment.groupId
+          }
+        : null,
+      origin: 'manual',
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
+    });
+  }
+
+  let updatedExisting = [...siblings];
+  if (current.installment) {
+    updatedExisting = siblings.map((s) => ({
+      ...s,
+      installment: {
+        ...s.installment!,
+        total: targetMonths
+      },
+      updatedAt: now
+    }));
+  }
+
+  await db.transactions.bulkPut([...updatedFirstIfNeeded, ...updatedExisting, ...newRecords]);
+  void syncAllWithSupabase();
+
+  return {
+    previousCount,
+    newCount: targetMonths,
+    addedCount,
+    removedCount: 0,
+    undo: async () => {
+      const undoTime = new Date().toISOString();
+      const softDeleteAdded = newRecords.map((r) => ({
+        ...r,
+        deletedAt: undoTime,
+        updatedAt: undoTime
+      }));
+      const restoredSiblings = siblings.map((s) => ({
+        ...s,
+        updatedAt: undoTime
+      }));
+      await db.transactions.bulkPut([...softDeleteAdded, ...restoredSiblings]);
+      void syncAllWithSupabase();
+    }
+  };
+}
+
+export interface DeduplicateResult {
+  duplicatesRemoved: number;
+  remainingCount: number;
+  undo: () => Promise<void>;
+}
+
+/**
+ * Localiza e remove com segurança lançamentos idênticos duplicados no espaço,
+ * mantendo o primeiro registro original intacto.
+ */
+export async function deduplicateTransactions(spaceId?: string): Promise<DeduplicateResult> {
+  let query = db.transactions.toCollection();
+  if (spaceId) {
+    query = db.transactions.where('spaceId').equals(spaceId);
+  }
+
+  const allActive = await query.and((t) => !t.deletedAt).toArray();
+  if (allActive.length <= 1) {
+    return { duplicatesRemoved: 0, remainingCount: allActive.length, undo: async () => {} };
+  }
+
+  const fingerprintMap = new Map<string, TransactionRecord[]>();
+
+  for (const tx of allActive) {
+    const cleanDesc = (tx.description || '').trim().toLowerCase();
+    const instPart = tx.installment ? `${tx.installment.current}/${tx.installment.total}` : 'no-inst';
+    const recPart = tx.recurrenceId ? 'rec' : 'no-rec';
+    const key = `${tx.spaceId}|${tx.date}|${tx.amountCents}|${tx.type}|${tx.categoryId}|${cleanDesc}|${tx.paymentMethod || 'none'}|${instPart}|${recPart}`;
+
+    const existing = fingerprintMap.get(key);
+    if (existing) {
+      existing.push(tx);
+    } else {
+      fingerprintMap.set(key, [tx]);
+    }
+  }
+
+  const duplicatesToDelete: TransactionRecord[] = [];
+
+  for (const group of fingerprintMap.values()) {
+    if (group.length > 1) {
+      group.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      for (let i = 1; i < group.length; i++) {
+        duplicatesToDelete.push(group[i]);
+      }
+    }
+  }
+
+  if (duplicatesToDelete.length === 0) {
+    return { duplicatesRemoved: 0, remainingCount: allActive.length, undo: async () => {} };
+  }
+
+  const now = new Date().toISOString();
+  const softDeleted = duplicatesToDelete.map((t) => ({
+    ...t,
+    deletedAt: now,
+    updatedAt: now
+  }));
+
+  await db.transactions.bulkPut(softDeleted);
+
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const dupIds = duplicatesToDelete.map((t) => t.id);
+    void supabase.from('transactions').delete().in('id', dupIds);
+  }
+
+  return {
+    duplicatesRemoved: duplicatesToDelete.length,
+    remainingCount: allActive.length - duplicatesToDelete.length,
+    undo: async () => {
+      const undoTime = new Date().toISOString();
+      const restored = duplicatesToDelete.map((t) => ({
+        ...t,
+        deletedAt: null,
+        updatedAt: undoTime
+      }));
+      await db.transactions.bulkPut(restored);
+      void syncAllWithSupabase();
+    }
+  };
+}
+
+export interface ResetAllMonthsOptions {
+  includeBudgets?: boolean;
+}
+
+export interface ResetAllMonthsResult {
+  transactionsCount: number;
+  budgetsCount: number;
+  distinctMonthsCount: number;
+  undo: () => Promise<void>;
+}
+
+/**
+ * Reseta todos os lançamentos ativos de todos os meses de forma segura com Soft Delete.
+ * Oferece reversão instantânea (Undo) restaurando exatamente o estado anterior.
+ */
+export async function resetAllMonthsTransactions(
+  spaceId?: string,
+  options?: ResetAllMonthsOptions
+): Promise<ResetAllMonthsResult> {
+  let txQuery = db.transactions.toCollection();
+  if (spaceId) {
+    txQuery = db.transactions.where('spaceId').equals(spaceId);
+  }
+
+  const allActiveTxs = await txQuery.and((t) => !t.deletedAt).toArray();
+  const distinctMonths = new Set(allActiveTxs.map((t) => t.date.slice(0, 7)));
+  const now = new Date().toISOString();
+
+  if (allActiveTxs.length > 0) {
+    const softDeletedTxs = allActiveTxs.map((t) => ({
+      ...t,
+      deletedAt: now,
+      updatedAt: now
+    }));
+    await db.transactions.bulkPut(softDeletedTxs);
+  }
+
+  let activeBudgets: BudgetRecord[] = [];
+  if (options?.includeBudgets) {
+    let bQuery = db.budgets.toCollection();
+    if (spaceId) {
+      bQuery = db.budgets.where('spaceId').equals(spaceId);
+    }
+    activeBudgets = await bQuery.and((b) => !b.deletedAt).toArray();
+    if (activeBudgets.length > 0) {
+      const softDeletedBudgets = activeBudgets.map((b) => ({
+        ...b,
+        deletedAt: now,
+        updatedAt: now
+      }));
+      await db.budgets.bulkPut(softDeletedBudgets);
+    }
+  }
+
+  // Sincroniza exclusões com Supabase se houver conexão
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    if (allActiveTxs.length > 0) {
+      const txIds = allActiveTxs.map((t) => t.id);
+      void supabase.from('transactions').delete().in('id', txIds);
+    }
+    if (activeBudgets.length > 0) {
+      const bIds = activeBudgets.map((b) => b.id);
+      void supabase.from('budgets').delete().in('id', bIds);
+    }
+  }
+
+  return {
+    transactionsCount: allActiveTxs.length,
+    budgetsCount: activeBudgets.length,
+    distinctMonthsCount: distinctMonths.size,
+    undo: async () => {
+      const undoTime = new Date().toISOString();
+      if (allActiveTxs.length > 0) {
+        const restoredTxs = allActiveTxs.map((t) => ({
+          ...t,
+          deletedAt: null,
+          updatedAt: undoTime
+        }));
+        await db.transactions.bulkPut(restoredTxs);
+      }
+
+      if (activeBudgets.length > 0) {
+        const restoredBudgets = activeBudgets.map((b) => ({
+          ...b,
+          deletedAt: null,
+          updatedAt: undoTime
+        }));
+        await db.budgets.bulkPut(restoredBudgets);
+      }
       void syncAllWithSupabase();
     }
   };

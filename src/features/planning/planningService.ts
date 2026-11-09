@@ -466,26 +466,42 @@ export async function markRecurringBillPaidWithUndo(
   const now = new Date().toISOString();
   const prevNextDate = rec.nextDate;
   const nextMonthDate = format(addMonths(parseISO(rec.nextDate), 1), 'yyyy-MM-dd');
-  const txId = generateId('tx');
+
+  let wasNewlyCreated = false;
+  let finalTxId = '';
 
   await db.transaction('rw', [db.recurrences, db.transactions], async () => {
-    await db.transactions.put({
-      id: txId,
-      userId: rec.userId,
-      spaceId: rec.spaceId,
-      amountCents: rec.amountCents,
-      type: rec.type,
-      categoryId: rec.categoryId,
-      date: prevNextDate,
-      description: rec.templateTitle,
-      paymentMethod: 'pix',
-      recurrenceId: rec.id,
-      installment: null,
-      origin: 'manual',
-      createdAt: now,
-      updatedAt: now,
-      deletedAt: null
-    });
+    // Evita duplicidade se a série já havia gerado um lançamento para esta data
+    const existingTx = await db.transactions
+      .where('spaceId')
+      .equals(rec.spaceId)
+      .and((t) => !t.deletedAt && t.recurrenceId === rec.id && t.date === prevNextDate)
+      .first();
+
+    if (existingTx) {
+      finalTxId = existingTx.id;
+      wasNewlyCreated = false;
+    } else {
+      finalTxId = generateId('tx');
+      wasNewlyCreated = true;
+      await db.transactions.put({
+        id: finalTxId,
+        userId: rec.userId,
+        spaceId: rec.spaceId,
+        amountCents: rec.amountCents,
+        type: rec.type,
+        categoryId: rec.categoryId,
+        date: prevNextDate,
+        description: rec.templateTitle,
+        paymentMethod: 'pix',
+        recurrenceId: rec.id,
+        installment: null,
+        origin: 'manual',
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null
+      });
+    }
 
     await db.recurrences.update(recurrenceId, {
       nextDate: nextMonthDate,
@@ -494,15 +510,17 @@ export async function markRecurringBillPaidWithUndo(
   });
 
   return {
-    transactionId: txId,
+    transactionId: finalTxId,
     nextDate: nextMonthDate,
     undo: async () => {
       const undoTime = new Date().toISOString();
       await db.transaction('rw', [db.recurrences, db.transactions], async () => {
-        await db.transactions.update(txId, {
-          deletedAt: undoTime,
-          updatedAt: undoTime
-        });
+        if (wasNewlyCreated) {
+          await db.transactions.update(finalTxId, {
+            deletedAt: undoTime,
+            updatedAt: undoTime
+          });
+        }
         await db.recurrences.update(recurrenceId, {
           nextDate: prevNextDate,
           updatedAt: undoTime

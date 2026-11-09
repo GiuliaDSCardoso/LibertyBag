@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   ArrowDownCircle,
@@ -70,6 +70,7 @@ export const AddTransactionModal: React.FC = () => {
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   // Estado para abrir o criador de categoria sem perder o valor digitado
   const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
@@ -131,6 +132,8 @@ export const AddTransactionModal: React.FC = () => {
     setShowMoreDetails(false);
     setErrorMessage(null);
     setNewlyCreatedCategory(null);
+    isSavingRef.current = false;
+    setIsSaving(false);
   };
 
   const handleClose = () => {
@@ -211,7 +214,8 @@ export const AddTransactionModal: React.FC = () => {
       return;
     }
 
-    if (isSaving) return;
+    if (isSaving || isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsSaving(true);
     try {
       const result = await createTransactionWithUndo({
@@ -241,6 +245,7 @@ export const AddTransactionModal: React.FC = () => {
       showUndoToast(`Salvo em ${targetCat.name}: ${formattedValue}`, result.undo);
       handleClose();
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   };

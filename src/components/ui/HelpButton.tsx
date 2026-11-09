@@ -21,10 +21,10 @@ export const HelpButton: React.FC<HelpButtonProps> = ({ title, explanation, exam
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Ajuda sobre ${title}`}
-        className="w-9 h-9 sm:w-auto min-h-[36px] sm:min-h-[42px] px-0 sm:px-3.5 rounded-full sm:rounded-pill bg-[#FF7518] hover:bg-[#e66710] active:scale-95 text-white font-bold inline-flex items-center justify-center gap-1.5 shrink-0 transition-all shadow-xs cursor-pointer"
+        className="w-10 h-10 sm:w-auto min-h-[40px] sm:min-h-[42px] px-0 sm:px-3.5 rounded-full sm:rounded-pill bg-gradient-to-br from-[#FF8833] via-[#FF7518] to-[#E65500] hover:from-[#FFA055] hover:to-[#FF6B00] active:scale-95 text-white font-extrabold inline-flex items-center justify-center gap-1.5 shrink-0 transition-all shadow-[0_3px_12px_rgba(255,117,24,0.35)] hover:shadow-[0_6px_18px_rgba(255,117,24,0.5)] border-2 border-white/70 dark:border-white/30 cursor-pointer"
       >
-        <HelpCircle size={17} aria-hidden="true" className="shrink-0 text-white" />
-        <span className="hidden sm:inline text-xs sm:text-sm font-bold text-white">Ajuda</span>
+        <HelpCircle size={18} aria-hidden="true" className="shrink-0 text-white" />
+        <span className="hidden sm:inline text-xs sm:text-sm font-bold text-white tracking-wide">Ajuda</span>
       </button>
 
       <ModalShell
